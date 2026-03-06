@@ -138,7 +138,7 @@ export default function LandingResultLayout({
 
                     {/* Status badge */}
                     <div className={`px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${theme.badge}`}>
-                        {theme.icon && <span className="inline-flex items-center gap-1.5">{React.cloneElement(theme.icon as React.ReactElement, { className: 'w-3 h-3' })} {status}</span>}
+                        <span className="inline-flex items-center gap-1.5">{status}</span>
                     </div>
                 </div>
             </div>
