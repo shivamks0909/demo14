@@ -266,7 +266,20 @@ export async function GET(request: NextRequest) {
         // ─── STEP 9: FINAL REDIRECT ─────────────────────────────────────────
         const landingUrl = new URL(config.route, request.url)
         landingUrl.searchParams.set('pid', project.project_code)
-        landingUrl.searchParams.set('uid', finalUid || 'N/A')
+
+        // Recover UID from record if available, otherwise fallback to finalUid or N/A
+        let displayUid = finalUid || 'N/A'
+        if (targetId) {
+            const { data: recUid } = await supabase
+                .from('responses')
+                .select('supplier_uid, uid')
+                .eq('id', targetId)
+                .maybeSingle()
+            if (recUid) {
+                displayUid = recUid.supplier_uid || recUid.uid || displayUid
+            }
+        }
+        landingUrl.searchParams.set('uid', displayUid)
 
         if (targetId) {
             const { data: cidData } = await supabase.from('responses').select('clickid').eq('id', targetId).maybeSingle();
