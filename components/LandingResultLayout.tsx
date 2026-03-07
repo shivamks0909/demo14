@@ -117,31 +117,7 @@ export default function LandingResultLayout({
     return (
         <div className="min-h-screen bg-bg-alt font-sans text-text-dark overflow-x-hidden">
 
-            {/* ── Top status bar ─────────────────────────────── */}
-            <div className="border-b border-border-base bg-white backdrop-blur-sm">
-                <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-                    {/* Brand */}
-                    <a href="https://opinioninsights.in/" className="flex items-center gap-2 opacity-80 hover:opacity-100 transition-opacity">
-                        <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center text-[10px] font-black text-white">OI</div>
-                        <span className="text-xs font-black text-text-muted uppercase tracking-widest hidden sm:block">OpinionInsights</span>
-                    </a>
 
-                    {/* Redirect countdown pill */}
-                    {redirectUrl && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 animate-pulse">
-                            <Clock className="w-3 h-3 text-primary" />
-                            <span className="text-[10px] font-black text-primary uppercase tracking-widest">
-                                Redirecting in {countdown}s…
-                            </span>
-                        </div>
-                    )}
-
-                    {/* Status badge */}
-                    <div className={`px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${theme.badge}`}>
-                        <span className="inline-flex items-center gap-1.5">{status}</span>
-                    </div>
-                </div>
-            </div>
 
             {/* ── Main: 3D Robot + Text ──────────────────────── */}
             <div className="relative min-h-[90vh] flex items-center overflow-hidden bg-white">

@@ -257,12 +257,6 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // If supplier redirect exists, forward respondent there
-        // Otherwise fall through to default landing page
-        if (supplierRedirectUrl) {
-            return NextResponse.redirect(supplierRedirectUrl)
-        }
-
         // ─── STEP 9: FINAL REDIRECT ─────────────────────────────────────────
         const landingUrl = new URL(config.route, request.url)
         landingUrl.searchParams.set('pid', project.project_code)
@@ -292,6 +286,10 @@ export async function GET(request: NextRequest) {
 
         if (request.nextUrl.searchParams.has('desc')) {
             landingUrl.searchParams.set('desc', request.nextUrl.searchParams.get('desc')!)
+        }
+
+        if (supplierRedirectUrl) {
+            landingUrl.searchParams.set('sUrl', supplierRedirectUrl)
         }
 
         console.log(`[status] Redirecting to landing: ${config.route} (pid=${project.project_code})`)

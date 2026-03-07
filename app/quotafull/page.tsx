@@ -26,15 +26,11 @@ export default async function QuotaFullPage(props: {
         headers: { get: (name: string) => headerList.get(name) }
     } as any)
 
-    // 3. Determine if we should perform an INSTANT redirect
-    const redirectUrl = data.supplier?.quotafull_redirect_url
+    // 3. Extract supplier redirect URL passed from route.ts (or fallback to DB)
+    const fallbackUrl = data.supplier?.quotafull_redirect_url
         ? data.supplier.quotafull_redirect_url.replace('{{pid}}', pid || data.pid).replace('{{uid}}', uid || data.uid)
-        : undefined
-
-    if (redirectUrl) {
-        console.log(`[QuotaFull] Performing instant supplier redirect to: ${redirectUrl}`)
-        redirect(redirectUrl)
-    }
+        : undefined;
+    const redirectUrl = (params.sUrl as string) || fallbackUrl;
 
     const title = (params.title as string) || "SORRY!"
     const desc = (params.desc as string) || "The Quota for this survey is FULL"
