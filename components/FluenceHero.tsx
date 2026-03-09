@@ -41,31 +41,31 @@ export default function FluenceHero() {
 
                 {/* ─── 3-D Spline Scene Card ─── */}
                 <div className="animate-reveal" style={{ animationDelay: '450ms' }}>
-                    <Card className="w-full h-[520px] bg-black/[0.96] relative overflow-hidden rounded-[40px] border-0 shadow-2xl">
+                    <Card className="w-full h-[520px] bg-white relative overflow-hidden rounded-[40px] border border-slate-100 shadow-2xl">
                         <Spotlight
                             className="-top-40 left-0 md:left-60 md:-top-20"
-                            fill="white"
+                            fill="rgba(91, 92, 246, 0.15)"
                         />
 
                         <div className="flex h-full">
                             {/* Left text */}
                             <div className="flex-1 p-10 relative z-10 flex flex-col justify-center">
-                                <span className="inline-block text-[10px] font-black uppercase tracking-widest text-white/30 mb-4">
+                                <span className="inline-block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">
                                     Powered by AI
                                 </span>
-                                <h2 className="text-4xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-b from-neutral-50 to-neutral-400 leading-tight mb-5">
+                                <h2 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight mb-5">
                                     Interactive<br />3D Insights
                                 </h2>
-                                <p className="text-neutral-400 text-sm leading-relaxed max-w-xs">
+                                <p className="text-slate-500 text-sm leading-relaxed max-w-xs">
                                     Bring your data to life with immersive 3-D visualisations. Capture attention and act with confidence.
                                 </p>
                                 <div className="mt-8 flex items-center gap-3">
                                     <div className="flex -space-x-2">
                                         {[1, 2, 3].map(i => (
-                                            <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-500 border-2 border-black" />
+                                            <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-500 border-2 border-white" />
                                         ))}
                                     </div>
-                                    <span className="text-xs text-neutral-400 font-medium">10,000+ researchers trust us</span>
+                                    <span className="text-xs text-slate-400 font-medium">10,000+ researchers trust us</span>
                                 </div>
                             </div>
 

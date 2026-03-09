@@ -38,9 +38,9 @@ export default function LiveActivityFeed({ responses }: { responses: any[] }) {
                                     </td>
                                     <td className="px-6 py-3 whitespace-nowrap text-center">
                                         <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${r.status === 'started' ? 'bg-indigo-50 text-indigo-600' :
-                                                r.status === 'complete' ? 'bg-emerald-50 text-emerald-600' :
-                                                    r.status === 'terminate' ? 'bg-rose-50 text-rose-600' :
-                                                        'bg-gray-100 text-gray-500'
+                                            r.status === 'complete' ? 'bg-emerald-50 text-emerald-600' :
+                                                r.status === 'terminate' ? 'bg-rose-50 text-rose-600' :
+                                                    'bg-gray-100 text-gray-500'
                                             }`}>
                                             {r.status}
                                         </span>
