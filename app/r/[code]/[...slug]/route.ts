@@ -106,6 +106,8 @@ export async function GET(
 
         // DYNAMIC GATEWAY FALLBACK
         const forceStatus = request.nextUrl.searchParams.get('status')
+        const forceUrl = request.nextUrl.searchParams.get('url')
+
         if (!project) {
             const { data: dynamicProject } = await insforge.database
                 .from('projects')
@@ -120,7 +122,14 @@ export async function GET(
         }
 
         if (!project) return NextResponse.redirect(new URL('/paused?title=PROJECT_NOT_FOUND', request.url))
-        if (project.status === 'paused') return NextResponse.redirect(new URL(`/paused?pid=${code}&title=PROJECT_PAUSED`, request.url))
+        
+        // URL OVERRIDE (For on-the-fly survey launching)
+        if (forceUrl) {
+            project.base_url = forceUrl
+            console.log(`[DynamicRouter] Overriding base_url with: ${forceUrl}`)
+        }
+
+        if (project.status === 'paused' && !forceUrl) return NextResponse.redirect(new URL(`/paused?pid=${code}&title=PROJECT_PAUSED`, request.url))
 
         let supplierName: string | null = null
         if (supplierToken) {
