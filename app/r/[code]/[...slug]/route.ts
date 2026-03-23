@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/insforge-server'
 import { getClientIp } from '@/lib/getClientIp'
 import { cookies } from 'next/headers'
 import crypto from 'crypto'
@@ -92,13 +92,13 @@ export async function GET(
         return NextResponse.redirect(new URL('/paused?title=INVALID_LINK', request.url))
     }
 
-    const supabase = await createAdminClient()
-    if (!supabase) {
+    const insforge = await createAdminClient()
+    if (!insforge) {
         return NextResponse.redirect(new URL('/paused?title=SYSTEM_OFFLINE', request.url))
     }
 
     try {
-        const { data: project } = await supabase
+        const { data: project } = await insforge.database
             .from('projects')
             .select('*')
             .eq('project_code', code)
@@ -109,7 +109,7 @@ export async function GET(
 
         let supplierName: string | null = null
         if (supplierToken) {
-            const { data: supplierRow } = await supabase
+            const { data: supplierRow } = await insforge.database
                 .from('suppliers')
                 .select('name')
                 .eq('supplier_token', supplierToken)
@@ -124,7 +124,7 @@ export async function GET(
 
         // PID generation (custom RID)
         if (project.pid_prefix) {
-            const { data: updatedProject, error: updateError } = await supabase
+            const { data: updatedProject, error: updateError } = await insforge.database
                 .from('projects')
                 .update({ pid_counter: (project.pid_counter || 0) + 1 })
                 .eq('id', project.id)
@@ -156,7 +156,7 @@ export async function GET(
         }
 
         // DB insert — supplier_uid is ALWAYS the original incomingUid
-        const { error: insertError } = await supabase
+        const { error: insertError } = await insforge.database
             .from('responses')
             .insert([{
                 project_id: project.id,

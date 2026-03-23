@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/insforge-server'
 
 export async function DELETE(
     request: NextRequest,
@@ -11,14 +11,14 @@ export async function DELETE(
         return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
     }
 
-    const supabase = await createAdminClient()
-    if (!supabase) {
+    const db = await createAdminClient()
+    if (!db) {
         return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
 
     try {
         // 1. Delete associated responses
-        const { error: responseError } = await supabase
+        const { error: responseError } = await db.database
             .from('responses')
             .delete()
             .eq('project_id', id)
@@ -29,7 +29,7 @@ export async function DELETE(
         }
 
         // 2. Delete the project
-        const { error: projectError } = await supabase
+        const { error: projectError } = await db.database
             .from('projects')
             .delete()
             .eq('id', id)

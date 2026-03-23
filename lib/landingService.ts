@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
-import { createAdminClient } from "./supabase-server";
+import { createAdminClient } from "./insforge-server";
 import { getClientIp } from "./getClientIp";
 
 export async function getLandingDataByClickId(clickid: string) {
-    const supabase = await createAdminClient()
-    if (!supabase) return null
+    const db = await createAdminClient()
+    if (!db) return null
 
-    const { data: response } = await supabase
+    const { data: response } = await db.database
         .from('responses')
         .select('*')
         .eq('clickid', clickid)
@@ -30,14 +30,14 @@ export async function updateResponseStatus(
     clickid?: string | null,
     lastLandingPage?: string | null
 ): Promise<{ id: string; status: string; uid: string; ip: string; supplier_uid?: string; project_code?: string; client_uid_sent?: string; hash_identifier?: string; clickid?: string } | null> {
-    const supabase = await createAdminClient()
-    if (!supabase) return null
+    const db = await createAdminClient()
+    if (!db) return null
 
     let existing: any = null
 
     // STEP 1a — Find by oi_session (preferred — zero vendor PID collision risk)
     if (clickid && clickid.includes('-') && clickid.length === 36) {
-        const { data: bySession } = await supabase
+        const { data: bySession } = await db.database
             .from('responses')
             .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
             .eq('oi_session', clickid)
@@ -49,7 +49,7 @@ export async function updateResponseStatus(
     // STEP 1b — Find the record by clickid (Case-Insensitive)
     if (!existing && clickid) {
         const cleanCid = clickid.trim()
-        const { data } = await supabase
+        const { data } = await db.database
             .from('responses')
             .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
             .ilike('clickid', cleanCid)
@@ -61,7 +61,7 @@ export async function updateResponseStatus(
     // Fallback: Try with project_code + uid
     if (!existing && projectCode) {
         const cleanUid = userUid.trim()
-        const { data } = await supabase
+        const { data } = await db.database
             .from('responses')
             .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
             .or(`uid.ilike.${cleanUid},client_uid_sent.ilike.${cleanUid},client_pid.ilike.${cleanUid}`)
@@ -76,7 +76,7 @@ export async function updateResponseStatus(
     // NEW FALLBACK: Try with client_pid + uid
     if (!existing && projectCode) {
         const cleanUid = userUid.trim()
-        const { data } = await supabase
+        const { data } = await db.database
             .from('responses')
             .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
             .or(`uid.ilike.${cleanUid},client_uid_sent.ilike.${cleanUid},client_pid.ilike.${cleanUid}`)
@@ -91,7 +91,7 @@ export async function updateResponseStatus(
     // Fallback: try uid-only
     if (!existing) {
         const cleanUid = userUid.trim()
-        const { data } = await supabase
+        const { data } = await db.database
             .from('responses')
             .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
             .or(`uid.ilike.${cleanUid},client_uid_sent.ilike.${cleanUid},client_pid.ilike.${cleanUid}`)
@@ -120,19 +120,19 @@ export async function updateResponseStatus(
 
     const terminalStatuses = ['complete', 'terminate', 'quota', 'security_terminate', 'duplicate_ip', 'duplicate_string', 'terminated', 'quota_full']
     if (terminalStatuses.includes(newStatus)) {
-        updatePayload.end_time = now.toISOString()
+        updatePayload.completed_at = now.toISOString()
 
         if (existing.start_time) {
             const startTime = new Date(existing.start_time)
-            const loiSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000)
-            updatePayload.loi_seconds = Math.max(0, loiSeconds)
+            const durationSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000)
+            updatePayload.duration_seconds = Math.max(0, durationSeconds)
         }
     }
 
     // STEP 2 — Update by specific id
     console.log(`[updateResponseStatus] Attempting update for id=${existing.id} to ${newStatus}`);
 
-    const { error, data } = await supabase
+    const { error, data } = await db.database
         .from('responses')
         .update(updatePayload)
         .eq('id', existing.id)
@@ -178,18 +178,18 @@ export async function getLandingPageData(
         supplier: null as any
     };
 
-    const supabase = await createAdminClient()
-    if (!supabase) return result
+    const db = await createAdminClient()
+    if (!db) return result
 
     if (clickid) {
         // ... (existing lookup logic remains similar but we ensure we get supplier token)
-        const { data: respBySid } = await supabase
+        const { data: respBySid } = await db.database
             .from('responses')
             .select('*, suppliers(*)')
             .eq('oi_session', clickid)
             .maybeSingle()
 
-        const { data: respByCid } = !respBySid ? await supabase
+        const { data: respByCid } = !respBySid ? await db.database
             .from('responses')
             .select('*, suppliers(*)')
             .eq('clickid', clickid)
@@ -204,7 +204,7 @@ export async function getLandingPageData(
 
             // FALLBACK: If join failed but we have a token, fetch manually
             if (!result.supplier && resp.supplier_token) {
-                const { data: s } = await supabase
+                const { data: s } = await db.database
                     .from('suppliers')
                     .select('*')
                     .eq('supplier_token', resp.supplier_token)
@@ -216,7 +216,7 @@ export async function getLandingPageData(
 
     // Fallback: lookup by uid if no clickid response found
     if (!result.response && uid && uid !== 'N/A') {
-        const { data: resp } = await supabase
+        const { data: resp } = await db.database
             .from('responses')
             .select('*, suppliers(*)')
             .eq('uid', uid)
@@ -235,7 +235,7 @@ export async function getLandingPageData(
     const sToken = (params.supplier as string);
     if (!result.supplier && sToken) {
         // Database is now live, always look there
-        const { data: s } = await supabase
+        const { data: s } = await db.database
             .from('suppliers')
             .select('*')
             .eq('supplier_token', sToken)
@@ -247,7 +247,7 @@ export async function getLandingPageData(
     }
 
     if (result.pid && result.pid !== "N/A") {
-        const { data: proj } = await supabase
+        const { data: proj } = await db.database
             .from('projects')
             .select('*')
             .eq('project_code', result.pid)

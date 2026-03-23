@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/insforge-server";
 
 export async function GET() {
-    const supabase = await createAdminClient();
-    if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
+    const db = await createAdminClient();
+    if (!db) return NextResponse.json({ error: "InsForge not configured" }, { status: 500 });
 
     console.log('[Suppliers API] Attempting to fetch suppliers...');
-    const { data, error, status, statusText } = await supabase
+    const { data, error, status, statusText } = await db.database
         .from('suppliers')
         .select('*')
         .order('created_at', { ascending: false });
@@ -33,12 +33,12 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-    const supabase = await createAdminClient();
-    if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
+    const db = await createAdminClient();
+    if (!db) return NextResponse.json({ error: "InsForge not configured" }, { status: 500 });
 
     try {
         const body = await req.json();
-        const { data, error } = await supabase
+        const { data, error } = await db.database
             .from('suppliers')
             .insert([body])
             .select()
@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-    const supabase = await createAdminClient();
-    if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
+    const db = await createAdminClient();
+    if (!db) return NextResponse.json({ error: "InsForge not configured" }, { status: 500 });
 
     try {
         const body = await req.json();
@@ -61,7 +61,7 @@ export async function PATCH(req: NextRequest) {
 
         if (!id) return NextResponse.json({ error: "Missing supplier ID" }, { status: 400 });
 
-        const { data, error } = await supabase
+        const { data, error } = await db.database
             .from('suppliers')
             .update(updates)
             .eq('id', id)

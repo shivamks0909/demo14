@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/insforge-server'
 import crypto from 'crypto'
 
 export const runtime = "nodejs";
@@ -42,8 +42,8 @@ export async function GET(request: NextRequest) {
         }
     }
 
-    const supabase = await createAdminClient()
-    if (!supabase) {
+    const db = await createAdminClient()
+    if (!db) {
         return NextResponse.json({ error: "Database not configured" }, { status: 500 })
     }
 

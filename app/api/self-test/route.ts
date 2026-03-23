@@ -1,20 +1,19 @@
-
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/insforge-server'
 import crypto from 'crypto'
 
 export const runtime = "nodejs";
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-    const supabase = await createAdminClient()
-    if (!supabase) {
+    const db = await createAdminClient()
+    if (!db) {
         return NextResponse.json({ status: 'FAIL', message: 'Database not configured' }, { status: 500 })
     }
 
     try {
         // 1. Create a Test Project (if not exists) or use existing active one
-        const { data: project } = await supabase
+        const { data: project } = await db.database
             .from('projects')
             .select('*')
             .eq('status', 'active')
@@ -30,7 +29,7 @@ export async function GET(request: NextRequest) {
 
         // 2. Simulate /r/[code]/[uid] entry (Insert)
         // We act as if the router route logic ran
-        const { error: insertError } = await supabase
+        const { error: insertError } = await db.database
             .from('responses')
             .insert([{
                 project_id: project.id,
@@ -49,7 +48,7 @@ export async function GET(request: NextRequest) {
         // 3. Simulate /api/callback/[code]/[uid]/[status] entry (Update)
         // We manually run the update logic exactly as the new route does
         const finalStatus = 'complete'
-        const { data: updated, error: updateError } = await supabase
+        const { data: updated, error: updateError } = await db.database
             .from('responses')
             .update({
                 status: finalStatus,
@@ -66,7 +65,7 @@ export async function GET(request: NextRequest) {
 
         // 4. Verify Postback Log (Simulated)
         // We verify that we can write to the new table
-        const { error: logError } = await supabase.from('postback_logs').insert([{
+        const { error: logError } = await db.database.from('postback_logs').insert([{
             url: `http://localhost/api/callback/${project.project_code}/${testUid}/complete`,
             method: 'GET',
             update_result: 'SUCCESS',
@@ -79,7 +78,7 @@ export async function GET(request: NextRequest) {
         }
 
         // 5. Cleanup
-        await supabase.from('responses').delete().eq('uid', testUid)
+        await db.database.from('responses').delete().eq('uid', testUid)
 
         return NextResponse.json({
             status: 'PASS',

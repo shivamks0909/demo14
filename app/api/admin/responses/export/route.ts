@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSessionClient } from '@/lib/supabase-server'
+import { createServerClient } from '@/lib/insforge-server'
 import ExcelJS from 'exceljs'
 import { PassThrough } from 'stream'
 
@@ -8,13 +8,13 @@ export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
     try {
-        const supabase = await createSessionClient()
-        if (!supabase) {
+        const db = await createServerClient()
+        if (!db) {
             return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
         }
 
         // 1. Fetch data
-        const { data: responses, error } = await supabase
+        const { data: responses, error } = await db.database
             .from('responses')
             .select(`
                 *,

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/insforge'
 
 export default function ExportResponsesButton() {
     const [loading, setLoading] = useState(false)

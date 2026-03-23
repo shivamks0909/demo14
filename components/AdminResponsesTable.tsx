@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/insforge'
 
 interface Response {
     id: string
@@ -22,7 +22,7 @@ interface Response {
 export default function AdminResponsesTable({ initialResponses }: { initialResponses: Response[] }) {
     const [responses, setResponses] = useState<Response[]>(initialResponses)
     const [isLive, setIsLive] = useState(false)
-    const supabase = createClient()
+    const insforge = createClient()
 
     useEffect(() => {
         // Cache for project names to avoid repeated fetches
@@ -34,7 +34,7 @@ export default function AdminResponsesTable({ initialResponses }: { initialRespo
         const fetchProjectName = async (projectId: string, projectCode: string) => {
             if (projectCache[projectCode]) return projectCache[projectCode]
 
-            const { data } = await supabase
+            const { data } = await insforge.database
                 .from('projects')
                 .select('project_name')
                 .eq('id', projectId)
@@ -46,61 +46,46 @@ export default function AdminResponsesTable({ initialResponses }: { initialRespo
         }
 
         // Subscription to Realtime
-        const channel = supabase
-            .channel('responses_realtime')
-            .on(
-                'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'responses' },
-                async (payload) => {
-                    console.log('[Realtime] New Response:', payload.new)
-                    const newRow = payload.new as any
+        const setupRealtime = async () => {
+            await insforge.realtime.connect()
+            await insforge.realtime.subscribe('responses:admin')
 
-                    // Fetch project name (from cache or DB)
-                    const projectName = await fetchProjectName(newRow.project_id, newRow.project_code)
+            insforge.realtime.on('INSERT_response', async (payload: any) => {
+                console.log('[Realtime] New Response:', payload)
+                const newRow = payload
 
-                    const mappedRow: Response = {
-                        ...newRow,
-                        project_name: projectName,
-                        supplier_uid: newRow.supplier_uid,
-                        client_uid_sent: newRow.client_uid_sent,
-                        uid: newRow.uid || 'N/A',
-                        ip: newRow.ip || 'N/A'
-                    }
+                const projectName = await fetchProjectName(newRow.project_id, newRow.project_code)
 
-                    setResponses(prev => [mappedRow, ...prev].slice(0, 500))
+                const mappedRow: Response = {
+                    ...newRow,
+                    project_name: projectName,
+                    supplier_uid: newRow.supplier_uid,
+                    client_uid_sent: newRow.client_uid_sent,
+                    uid: newRow.uid || 'N/A',
+                    ip: newRow.ip || 'N/A'
                 }
-            )
-            .on(
-                'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'responses' },
-                (payload) => {
-                    console.log('[Realtime] Updated Response:', payload.new)
-                    const updatedRow = payload.new as any
-                    setResponses(prev => prev.map(r =>
-                        r.id === updatedRow.id ? { ...r, ...updatedRow } : r
-                    ))
-                }
-            )
-            .on(
-                'system',
-                {},
-                (status) => {
-                    console.log('[Realtime] Connection Status:', status)
-                    setIsLive(status === 'SUBSCRIBED')
-                }
-            )
-            .subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                    setIsLive(true)
-                } else {
-                    setIsLive(false)
-                }
+                setResponses(prev => [mappedRow, ...prev].slice(0, 500))
             })
 
-        return () => {
-            supabase.removeChannel(channel)
+            insforge.realtime.on('UPDATE_response', (payload: any) => {
+                console.log('[Realtime] Updated Response:', payload)
+                const updatedRow = payload
+                setResponses(prev => prev.map(r =>
+                    r.id === updatedRow.id ? { ...r, ...updatedRow } : r
+                ))
+            })
+
+            insforge.realtime.on('connect', () => setIsLive(true))
+            insforge.realtime.on('disconnect', () => setIsLive(false))
         }
-    }, [supabase])
+
+        setupRealtime()
+
+        return () => {
+            insforge.realtime.unsubscribe('responses:admin')
+            insforge.realtime.disconnect()
+        }
+    }, [insforge])
 
     // IP Activity Logic for badges
     const today = new Date().toDateString()

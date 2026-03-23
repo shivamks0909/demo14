@@ -1,42 +1,5 @@
-import LandingResultLayout from '@/components/LandingResultLayout'
-import { getLandingPageData, updateResponseStatus } from '@/lib/landingService'
-
-export const dynamic = "force-dynamic"
-
-export default async function DuplicateIpPage(props: {
-    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-    const params = await props.searchParams
-    const { headers } = await import('next/headers')
-    const headerList = await headers()
-
-    const cookieUid = headerList.get('cookie')?.split(';').find(c => c.trim().startsWith('last_uid='))?.split('=')[1]
-    const cookiePid = headerList.get('cookie')?.split(';').find(c => c.trim().startsWith('last_pid='))?.split('=')[1]
-
-    const pid = (params.pid as string) || (params.code as string) || cookiePid || ''
-    const uid = (params.uid as string) || cookieUid || ''
-    const clickid = (params.clickid as string) || (params.cid as string) || null
-
-    // UPDATE: update record to 'duplicate_ip'
-    const updated = (pid && uid) || clickid ? await updateResponseStatus(pid, uid, 'duplicate_ip', clickid, 'duplicate_ip') : null
-
-    const data = await getLandingPageData(params, {
-        headers: { get: (name: string) => headerList.get(name) }
-    } as any)
-
-    const title = (params.title as string) || "SORRY!"
-    const desc = (params.desc as string) || "Multiple attempts from the same IP are not allowed"
-
-    return (
-        <LandingResultLayout
-            title={title}
-            description={desc}
-            type="info"
-            uid={uid || data.uid}
-            code={pid || data.pid}
-            ip={data.ip}
-            status="Duplicate IP"
-            responseId={updated?.id || data.response?.id || undefined}
-        />
-    )
+import React from "react";
+import { WavyOutcomeView } from "@/components/public/WavyOutcomeView";
+export default function DuplicateIpPage() {
+  return <WavyOutcomeView status="Duplicate IP" statusKeyword="duplicate" />;
 }

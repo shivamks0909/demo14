@@ -1,7 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/insforge-server'
 import bcrypt from 'bcrypt'
 
 const DEV_BYPASS_EMAIL = 'dev@localhost'
@@ -21,8 +21,8 @@ export async function loginAction(formData: FormData) {
     const email = (formData.get('email') as string)?.trim() ?? ''
     const password = formData.get('password') as string
 
-    // Dev bypass when Supabase is not configured (local development only)
-    if (process.env.NODE_ENV === 'development' && !process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    // Dev bypass when InsForge is not configured (local development only)
+    if (process.env.NODE_ENV === 'development' && !process.env.NEXT_PUBLIC_INSFORGE_URL) {
         if (email === DEV_BYPASS_EMAIL && password === DEV_BYPASS_PASSWORD) {
             const cookieStore = await cookies()
             setAdminSessionCookie(cookieStore)
@@ -30,16 +30,16 @@ export async function loginAction(formData: FormData) {
         }
     }
 
-    const supabase = await createAdminClient()
-    if (!supabase) {
+    const db = await createAdminClient()
+    if (!db) {
         return {
-            error: 'Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to .env.local, or sign in with dev@localhost / dev in development.'
+            error: 'InsForge is not configured. Add NEXT_PUBLIC_INSFORGE_URL and INSFORGE_API_KEY to .env.local, or sign in with dev@localhost / dev in development.'
         }
     }
 
     try {
         console.log(`[Login] Attempt for email: ${email}`);
-        const { data: admin, error: dbError } = await supabase
+        const { data: admin, error: dbError } = await db.database
             .from('admins')
             .select('password_hash')
             .eq('email', email)

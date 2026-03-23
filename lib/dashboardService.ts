@@ -1,30 +1,30 @@
-import { createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/insforge-server'
 import { KPIStats, ProjectAnalytics, Client, Project, Supplier, SupplierProjectLink } from '@/lib/types'
 
-const notConfiguredError = { message: 'Supabase not configured' }
+const notConfiguredError = { message: 'InsForge not configured' }
 
 export const dashboardService = {
     async getProjectAnalytics(clientId?: string): Promise<ProjectAnalytics[]> {
-        const supabase = await createAdminClient()
-        if (!supabase) return []
-        let query = supabase.rpc('get_project_analytics')
+        const insforge = await createAdminClient()
+        if (!insforge) return []
+        let query = insforge.database.rpc('get_project_analytics')
         const { data, error } = await query
         if (error) return []
         return data as ProjectAnalytics[]
     },
 
     async getClients(): Promise<Client[]> {
-        const supabase = await createAdminClient()
-        if (!supabase) return []
-        const { data, error } = await supabase.from('clients').select('*').order('created_at', { ascending: false })
+        const insforge = await createAdminClient()
+        if (!insforge) return []
+        const { data, error } = await insforge.database.from('clients').select('*').order('created_at', { ascending: false })
         if (error) return []
         return data as Client[]
     },
 
     async createClient(name: string): Promise<{ data: Client | null; error: any }> {
-        const supabase = await createAdminClient()
-        if (!supabase) return { data: null, error: notConfiguredError }
-        const { data, error } = await supabase
+        const insforge = await createAdminClient()
+        if (!insforge) return { data: null, error: notConfiguredError }
+        const { data, error } = await insforge.database
             .from('clients')
             .insert([{ name }])
             .select()
@@ -33,9 +33,9 @@ export const dashboardService = {
     },
 
     async deleteClient(id: string): Promise<{ error: any }> {
-        const supabase = await createAdminClient()
-        if (!supabase) return { error: notConfiguredError }
-        const { error } = await supabase
+        const insforge = await createAdminClient()
+        if (!insforge) return { error: notConfiguredError }
+        const { error } = await insforge.database
             .from('clients')
             .delete()
             .eq('id', id)
@@ -43,9 +43,9 @@ export const dashboardService = {
     },
 
     async getProjects(): Promise<(Project & { client_name: string })[]> {
-        const supabase = await createAdminClient()
-        if (!supabase) return []
-        const { data, error } = await supabase
+        const insforge = await createAdminClient()
+        if (!insforge) return []
+        const { data, error } = await insforge.database
             .from('projects')
             .select(`
                 *,
@@ -68,9 +68,9 @@ export const dashboardService = {
     },
 
     async createProject(project: any): Promise<{ data: Project | null; error: any }> {
-        const supabase = await createAdminClient()
-        if (!supabase) return { data: null, error: notConfiguredError }
-        const { data, error } = await supabase
+        const insforge = await createAdminClient()
+        if (!insforge) return { data: null, error: notConfiguredError }
+        const { data, error } = await insforge.database
             .from('projects')
             .insert([{ ...project, status: 'active' }])
             .select()
@@ -79,9 +79,9 @@ export const dashboardService = {
     },
 
     async updateProjectStatus(id: string, status: 'active' | 'paused'): Promise<{ error: any }> {
-        const supabase = await createAdminClient()
-        if (!supabase) return { error: notConfiguredError }
-        const { error } = await supabase
+        const insforge = await createAdminClient()
+        if (!insforge) return { error: notConfiguredError }
+        const { error } = await insforge.database
             .from('projects')
             .update({ status })
             .eq('id', id)
@@ -89,9 +89,9 @@ export const dashboardService = {
     },
 
     async deleteProject(id: string): Promise<{ error: any }> {
-        const supabase = await createAdminClient()
-        if (!supabase) return { error: notConfiguredError }
-        const { error } = await supabase
+        const insforge = await createAdminClient()
+        if (!insforge) return { error: notConfiguredError }
+        const { error } = await insforge.database
             .from('projects')
             .update({
                 deleted_at: new Date().toISOString(),
@@ -128,11 +128,11 @@ export const dashboardService = {
     },
 
     async getProjectHealthMetrics(): Promise<any[]> {
-        const supabase = await createAdminClient()
-        if (!supabase) return []
+        const insforge = await createAdminClient()
+        if (!insforge) return []
 
         // Fetch all active projects
-        const { data: projects, error: projectsError } = await supabase
+        const { data: projects, error: projectsError } = await insforge.database
             .from('projects')
             .select('id, project_code')
             .is('deleted_at', null)
@@ -142,7 +142,7 @@ export const dashboardService = {
         // Fetch all responses from today
         const today = new Date()
         today.setHours(0, 0, 0, 0)
-        const { data: responses, error: responsesError } = await supabase
+        const { data: responses, error: responsesError } = await insforge.database
             .from('responses')
             .select('project_id, status')
             .gte('created_at', today.toISOString())
@@ -183,24 +183,24 @@ export const dashboardService = {
     },
 
     async getProjectById(id: string): Promise<Project | null> {
-        const supabase = await createAdminClient()
-        if (!supabase) return null
-        const { data, error } = await supabase.from('projects').select('*').eq('id', id).single()
+        const insforge = await createAdminClient()
+        if (!insforge) return null
+        const { data, error } = await insforge.database.from('projects').select('*').eq('id', id).single()
         if (error) return null
         return data as Project
     },
 
     async updateProject(id: string, project: Partial<Project>): Promise<{ error: any }> {
-        const supabase = await createAdminClient()
-        if (!supabase) return { error: notConfiguredError }
-        const { error } = await supabase.from('projects').update(project).eq('id', id)
+        const insforge = await createAdminClient()
+        if (!insforge) return { error: notConfiguredError }
+        const { error } = await insforge.database.from('projects').update(project).eq('id', id)
         return { error }
     },
 
     async getResponses(filters?: { ip?: string; status?: string; device_type?: string }): Promise<any[]> {
-        const supabase = await createAdminClient()
-        if (!supabase) return []
-        let query = supabase
+        const insforge = await createAdminClient()
+        if (!insforge) return []
+        let query = insforge.database
             .from('responses')
             .select(`
                 *,
@@ -231,61 +231,61 @@ export const dashboardService = {
     },
 
     async flushResponses(): Promise<{ error: any }> {
-        const supabase = await createAdminClient()
-        if (!supabase) return { error: notConfiguredError }
-        const { error } = await supabase
+        const insforge = await createAdminClient()
+        if (!insforge) return { error: notConfiguredError }
+        const { error } = await insforge.database
             .from('responses')
             .delete()
             .neq('id', '00000000-0000-0000-0000-000000000000')
         return { error }
     },
     async getSuppliers(): Promise<Supplier[]> {
-        const supabase = await createAdminClient()
-        if (!supabase) return []
-        const { data, error } = await supabase.from('suppliers').select('*').order('created_at', { ascending: false })
+        const insforge = await createAdminClient()
+        if (!insforge) return []
+        const { data, error } = await insforge.database.from('suppliers').select('*').order('created_at', { ascending: false })
         if (error) return []
         return data as Supplier[]
     },
 
     async getSupplierByToken(token: string): Promise<Supplier | null> {
-        const supabase = await createAdminClient()
-        if (!supabase) return null
-        const { data } = await supabase.from('suppliers').select('*').eq('supplier_token', token).eq('status', 'active').maybeSingle()
+        const insforge = await createAdminClient()
+        if (!insforge) return null
+        const { data } = await insforge.database.from('suppliers').select('*').eq('supplier_token', token).eq('status', 'active').maybeSingle()
         return data as Supplier | null
     },
 
     async createSupplier(supplier: Omit<Supplier, 'id' | 'created_at'>): Promise<{ data: Supplier | null; error: any }> {
-        const supabase = await createAdminClient()
-        if (!supabase) return { data: null, error: { message: 'Supabase not configured' } }
-        const { data, error } = await supabase.from('suppliers').insert([supplier]).select().single()
+        const insforge = await createAdminClient()
+        if (!insforge) return { data: null, error: { message: 'Supabase not configured' } }
+        const { data, error } = await insforge.database.from('suppliers').insert([supplier]).select().single()
         return { data, error }
     },
 
     async updateSupplier(id: string, supplier: Partial<Supplier>): Promise<{ error: any }> {
-        const supabase = await createAdminClient()
-        if (!supabase) return { error: { message: 'Supabase not configured' } }
-        const { error } = await supabase.from('suppliers').update(supplier).eq('id', id)
+        const insforge = await createAdminClient()
+        if (!insforge) return { error: { message: 'Supabase not configured' } }
+        const { error } = await insforge.database.from('suppliers').update(supplier).eq('id', id)
         return { error }
     },
 
     async deleteSupplier(id: string): Promise<{ error: any }> {
-        const supabase = await createAdminClient()
-        if (!supabase) return { error: { message: 'Supabase not configured' } }
+        const insforge = await createAdminClient()
+        if (!insforge) return { error: { message: 'Supabase not configured' } }
 
         // 1. Remove project links first to avoid FK constraint errors
-        const { error: unlinkError } = await supabase.from('supplier_project_links').delete().eq('supplier_id', id)
+        const { error: unlinkError } = await insforge.database.from('supplier_project_links').delete().eq('supplier_id', id)
         if (unlinkError) {
             console.error('[deleteSupplier] Unlink Error:', unlinkError)
         }
 
         // 2. Perform deletion of the supplier
-        const { error } = await supabase.from('suppliers').delete().eq('id', id)
+        const { error } = await insforge.database.from('suppliers').delete().eq('id', id)
 
         if (error) {
             console.error('[deleteSupplier] Error:', error)
             // If it's a constraint violation, fallback to pausing the supplier
             if (error.code === '23503') {
-                const { error: fallbackError } = await supabase
+                const { error: fallbackError } = await insforge.database
                     .from('suppliers')
                     .update({ status: 'paused' })
                     .eq('id', id)
@@ -299,9 +299,9 @@ export const dashboardService = {
     },
 
     async getSupplierProjectLinks(projectId: string): Promise<(SupplierProjectLink & { supplier: Supplier })[]> {
-        const supabase = await createAdminClient()
-        if (!supabase) return []
-        const { data, error } = await supabase
+        const insforge = await createAdminClient()
+        if (!insforge) return []
+        const { data, error } = await insforge.database
             .from('supplier_project_links')
             .select('*, supplier:suppliers(*)')
             .eq('project_id', projectId)
@@ -310,18 +310,18 @@ export const dashboardService = {
     },
 
     async linkSupplierToProject(supplierId: string, projectId: string, quotaAllocated = 0): Promise<{ error: any }> {
-        const supabase = await createAdminClient()
-        if (!supabase) return { error: { message: 'Supabase not configured' } }
-        const { error } = await supabase.from('supplier_project_links')
+        const insforge = await createAdminClient()
+        if (!insforge) return { error: { message: 'Supabase not configured' } }
+        const { error } = await insforge.database.from('supplier_project_links')
             .upsert([{ supplier_id: supplierId, project_id: projectId, quota_allocated: quotaAllocated, status: 'active' }],
                 { onConflict: 'supplier_id,project_id' })
         return { error }
     },
 
     async unlinkSupplierFromProject(supplierId: string, projectId: string): Promise<{ error: any }> {
-        const supabase = await createAdminClient()
-        if (!supabase) return { error: { message: 'Supabase not configured' } }
-        const { error } = await supabase.from('supplier_project_links')
+        const insforge = await createAdminClient()
+        if (!insforge) return { error: { message: 'Supabase not configured' } }
+        const { error } = await insforge.database.from('supplier_project_links')
             .delete().eq('supplier_id', supplierId).eq('project_id', projectId)
         return { error }
     }

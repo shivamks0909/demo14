@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/insforge-server'
 import { getClientIp } from '@/lib/getClientIp'
 
 export const runtime = "nodejs";
@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(errorUrl)
     }
 
-    const supabase = await createAdminClient()
-    if (!supabase) {
+    const insforge = await createAdminClient()
+    if (!insforge) {
         const fatalUrl = new URL('/paused', request.url)
         fatalUrl.searchParams.set('title', 'SYSTEM OFFLINE')
         fatalUrl.searchParams.set('desc', 'Database is not configured. Please try again later.')
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     try {
         // 2. Fetch project details
-        const { data: project, error: fetchError } = await supabase
+        const { data: project, error: fetchError } = await insforge.database
             .from('projects')
             .select('*')
             .eq('project_code', code)
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
         // --- IP Abuse Check (Throttle: > 3 per min per project) ---
         if (ip !== '127.0.0.1' && ip !== '::1') {
             const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
-            const { count: ipCount } = await supabase
+            const { count: ipCount } = await insforge.database
                 .from('responses')
                 .select('*', { count: 'exact', head: true })
                 .eq('ip', ip)
@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
         }
 
         // --- Duplicate Check (Same UID + Project) ---
-        const { data: existingResponses, error: dupeError } = await supabase
+        const { data: existingResponses, error: dupeError } = await insforge.database
             .from('responses')
             .select('id')
             .eq('uid', validatedUid)
@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
         let supplierNameRecord: string | null = null
 
         if (supplierToken) {
-            const { data: sData } = await supabase
+            const { data: sData } = await insforge.database
                 .from('suppliers')
                 .select('name')
                 .eq('supplier_token', supplierToken)
@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
         // 5. Generate Client PID if tool is configured
         let clientPid: string | null = null
         if (project.pid_prefix) {
-            const { data: updatedProject, error: pidError } = await supabase
+            const { data: updatedProject, error: pidError } = await insforge.database
                 .from('projects')
                 .update({ pid_counter: (project.pid_counter || 0) + 1 })
                 .eq('id', project.id)
@@ -221,7 +221,7 @@ export async function GET(request: NextRequest) {
         const hashIdentifier = crypto.randomUUID().substring(0, 8)
 
         // 6. Initial Response Entry (status: in_progress)
-        const { error: insertError } = await supabase
+        const { error: insertError } = await insforge.database
             .from('responses')
             .insert([{
                 project_id: project.id,

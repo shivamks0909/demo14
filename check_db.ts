@@ -1,13 +1,13 @@
-import { createAdminClient } from './lib/supabase-server'
+import { createAdminClient } from './lib/insforge-server'
 
 async function checkTable() {
-    const supabase = await createAdminClient()
-    if (!supabase) {
+    const insforge = await createAdminClient()
+    if (!insforge) {
         console.error('Supabase client not initialized')
         return
     }
 
-    const { data, error } = await supabase.from('suppliers').select('count', { count: 'exact', head: true })
+    const { data, error } = await insforge.database.from('suppliers').select('count', { count: 'exact', head: true })
     if (error) {
         console.error('Error checking suppliers table:', error.message)
         if (error.message.includes('does not exist')) {

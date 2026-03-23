@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/insforge-server'
 
 export const runtime = "nodejs";
 
@@ -8,9 +8,9 @@ export async function GET(
     context: { params: Promise<{ project: string; clickid: string; status: string }> }
 ) {
     const { project, clickid, status } = await context.params
-    const supabase = await createAdminClient()
+    const db = await createAdminClient()
 
-    if (!supabase) {
+    if (!db) {
         return NextResponse.redirect(new URL('/paused?title=SYSTEM_OFFLINE', request.url))
     }
 
@@ -19,7 +19,7 @@ export async function GET(
 
     try {
         // 1. Strict Update Logic
-        const { data: updateData, error: updateError, count } = await supabase
+        const { data: updateData, error: updateError, count } = await db.database
             .from('responses')
             .update({
                 status: incomingStatus,
@@ -34,7 +34,7 @@ export async function GET(
         const success = !updateError && count !== null && count > 0
 
         // 2. Audit Logging
-        await supabase.from('callback_events').insert([{
+        await db.database.from('callback_events').insert([{
             clickid,
             project_code: project,
             incoming_status: status,

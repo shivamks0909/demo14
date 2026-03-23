@@ -9,12 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@insforge/sdk": "^1.2.0",
     "@splinetool/react-spline": "^4.1.0",
     "@splinetool/runtime": "^1.12.67",
-    "@supabase/ssr": "^0.8.0",
-    "@supabase/supabase-js": "^2.95.3",
     "@types/bcrypt": "^6.0.0",
     "bcrypt": "^6.0.0",
+    "better-sqlite3": "^12.8.0",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -32,6 +32,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
     "@types/react": "^19",

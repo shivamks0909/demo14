@@ -1,4 +1,4 @@
-import { createSessionClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/insforge-server'
 import { redirect } from 'next/navigation'
 import BrandLogo from '@/components/BrandLogo'
 
@@ -17,11 +17,11 @@ export default async function PreScreenerPage({ searchParams }: PreScreenerProps
         redirect('/paused')
     }
 
-    const supabase = await createSessionClient()
-    if (!supabase) redirect('/paused')
+    const db = await createAdminClient()
+    if (!db) redirect('/paused')
 
     // 1. Fetch response and associated project
-    const query = supabase
+    const query = db.database
         .from('responses')
         .select('*, projects(*)')
 
@@ -56,8 +56,8 @@ export default async function PreScreenerPage({ searchParams }: PreScreenerProps
         const res_id = formData.get('response_id') as string
         const token = formData.get('session_token') as string
 
-        const supabase = await createSessionClient()
-        if (!supabase) redirect('/paused')
+        const db = await createAdminClient()
+        if (!db) redirect('/paused')
 
         // Simple Qualification Logic: Age 18+ and Country matches project country (if not Global)
         const isQualified = age >= 18 && (project.country === 'Global' || project.country === country)
@@ -83,7 +83,7 @@ export default async function PreScreenerPage({ searchParams }: PreScreenerProps
             redirect(finalUrlObj.toString())
         } else {
             // Fail: Update status and redirect to terminate
-            const updateQuery = supabase.from('responses').update({ status: 'terminate' })
+            const updateQuery = db.database.from('responses').update({ status: 'terminate' })
             if (token) {
                 updateQuery.eq('session_token', token)
             } else {

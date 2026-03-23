@@ -1,6 +1,6 @@
 'use server'
 
-import { createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/insforge-server'
 import { Project, Client } from '@/lib/types'
 import { dashboardService } from '@/lib/dashboardService'
 import { Supplier } from '@/lib/types'
@@ -25,12 +25,12 @@ export async function unlinkSupplierFromProjectAction(supplierId: string, projec
     return dashboardService.unlinkSupplierFromProject(supplierId, projectId)
 }
 
-const notConfiguredError = { message: 'Database not configured' }
+const notConfiguredError = { message: 'InsForge not configured' }
 
 export async function createClientAction(name: string): Promise<{ data: Client | null; error: any }> {
-    const supabase = await createAdminClient()
-    if (!supabase) return { data: null, error: notConfiguredError }
-    const { data, error } = await supabase
+    const db = await createAdminClient()
+    if (!db) return { data: null, error: notConfiguredError }
+    const { data, error } = await db.database
         .from('clients')
         .insert([{ name }])
         .select()
@@ -45,13 +45,13 @@ export async function flushResponsesAction(): Promise<{ success: boolean; error:
 }
 
 export async function deleteClientAction(id: string): Promise<{ error: any }> {
-    const supabase = await createAdminClient()
-    if (!supabase) return { error: notConfiguredError }
+    const db = await createAdminClient()
+    if (!db) return { error: notConfiguredError }
 
     // 1. Unlink associated projects (Handle Foreign Key Constraint)
     // We set client_id to null so the projects are 'orphaned' but not lost,
     // which allows the client to be deleted from the database.
-    const { error: unlinkError } = await supabase
+    const { error: unlinkError } = await db.database
         .from('projects')
         .update({ client_id: null })
         .eq('client_id', id)
@@ -62,7 +62,7 @@ export async function deleteClientAction(id: string): Promise<{ error: any }> {
     }
 
     // 2. Perform deletion of the client
-    const { error } = await supabase
+    const { error } = await db.database
         .from('clients')
         .delete()
         .eq('id', id)
@@ -71,9 +71,9 @@ export async function deleteClientAction(id: string): Promise<{ error: any }> {
 }
 
 export async function createProjectAction(formData: any, countryUrls: any[] = []): Promise<{ data: Project | null; error: any }> {
-    const supabase = await createAdminClient()
-    if (!supabase) return { data: null, error: notConfiguredError }
-    const { data, error } = await supabase
+    const db = await createAdminClient()
+    if (!db) return { data: null, error: notConfiguredError }
+    const { data, error } = await db.database
         .from('projects')
         .insert([{
             ...formData,
@@ -94,9 +94,9 @@ export async function createProjectAction(formData: any, countryUrls: any[] = []
 }
 
 export async function updateProjectStatusAction(id: string, status: 'active' | 'paused'): Promise<{ error: any }> {
-    const supabase = await createAdminClient()
-    if (!supabase) return { error: notConfiguredError }
-    const { error } = await supabase
+    const db = await createAdminClient()
+    if (!db) return { error: notConfiguredError }
+    const { error } = await db.database
         .from('projects')
         .update({ status })
         .eq('id', id)
@@ -104,9 +104,9 @@ export async function updateProjectStatusAction(id: string, status: 'active' | '
 }
 
 export async function updateProjectAction(id: string, data: any): Promise<{ error: any }> {
-    const supabase = await createAdminClient()
-    if (!supabase) return { error: notConfiguredError }
-    const { error } = await supabase
+    const db = await createAdminClient()
+    if (!db) return { error: notConfiguredError }
+    const { error } = await db.database
         .from('projects')
         .update({
             ...data,
@@ -127,11 +127,11 @@ export async function updateCountryActiveAction(
     countryCode: string,
     active: boolean
 ): Promise<{ error: any }> {
-    const supabase = await createAdminClient()
-    if (!supabase) return { error: notConfiguredError }
+    const db = await createAdminClient()
+    if (!db) return { error: notConfiguredError }
 
     // Fetch current country_urls
-    const { data: project, error: fetchError } = await supabase
+    const { data: project, error: fetchError } = await db.database
         .from('projects')
         .select('country_urls')
         .eq('id', projectId)
@@ -143,7 +143,7 @@ export async function updateCountryActiveAction(
         c.country_code === countryCode ? { ...c, active } : c
     )
 
-    const { error } = await supabase
+    const { error } = await db.database
         .from('projects')
         .update({ country_urls: updatedUrls })
         .eq('id', projectId)
@@ -152,12 +152,12 @@ export async function updateCountryActiveAction(
 }
 
 export async function deleteProjectAction(id: string): Promise<{ error: any }> {
-    const supabase = await createAdminClient()
-    if (!supabase) return { error: { message: 'Database not configured' } }
+    const db = await createAdminClient()
+    if (!db) return { error: { message: 'InsForge not configured' } }
 
     console.log(`[deleteProjectAction] Deleting project id=${id}`)
 
-    const { error } = await supabase
+    const { error } = await db.database
         .from('projects')
         .update({
             deleted_at: new Date().toISOString(),
@@ -169,7 +169,7 @@ export async function deleteProjectAction(id: string): Promise<{ error: any }> {
         console.error('[deleteProjectAction] Error:', error)
         // If it's a constraint violation for 'deleted' status, try falling back to 'paused'
         if (error.code === '23514') {
-            const { error: fallbackError } = await supabase
+            const { error: fallbackError } = await db.database
                 .from('projects')
                 .update({
                     deleted_at: new Date().toISOString(),

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/insforge-server'
 import { getClientIp } from '@/lib/getClientIp'
 
 export const runtime = "nodejs";
@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(errorUrl)
     }
 
-    const supabase = await createAdminClient()
-    if (!supabase) {
+    const insforge = await createAdminClient()
+    if (!insforge) {
         const fatalUrl = new URL('/paused', request.url)
         fatalUrl.searchParams.set('title', 'SYSTEM OFFLINE')
         fatalUrl.searchParams.set('desc', 'Database is not configured. Please try again later.')
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
         // ─── STEP 1: SESSION TOKEN LOOKUP (most reliable) ───────────────────
         if (sessionToken) {
-            const { data: rec } = await supabase
+            const { data: rec } = await insforge.database
                 .from('responses')
                 .select('id, started_at, project_id, project_code, projects!inner(*)')
                 .eq('session_token', sessionToken)
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
         // ─── STEP 2: UID RECOVERY (cross-project, case-insensitive) ─────────
         if (!project && finalUid) {
             const cleanUid = finalUid.trim()
-            const { data: rec } = await supabase
+            const { data: rec } = await insforge.database
                 .from('responses')
                 .select('id, started_at, project_id, project_code, projects!inner(*)')
                 .or(`uid.ilike.${cleanUid},client_uid_sent.ilike.${cleanUid},client_pid.ilike.${cleanUid}`)
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
         // ─── STEP 3: FALLBACK TO RAW CODE (only if UID found nothing) ───────
         if (!project && finalPid) {
             // First try internal project_code
-            const { data: byCode } = await supabase
+            const { data: byCode } = await insforge.database
                 .from('projects')
                 .select('*')
                 .eq('project_code', finalPid)
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
 
             // If not found, it might be a client_pid being passed as 'pid'
             if (!project) {
-                const { data: byPid } = await supabase
+                const { data: byPid } = await insforge.database
                     .from('projects')
                     .select('*')
                     .eq('pid_prefix', finalPid.replace(/[0-9]/g, '')) // Rough extraction of prefix
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
         // ─── STEP 3.5: ATTEMPT TO FIND RECORD BY CLIENT_PID + UID ──────────
         if (!targetId && finalPid && finalUid) {
             const cleanUid = finalUid.trim()
-            const { data: rec } = await supabase
+            const { data: rec } = await insforge.database
                 .from('responses')
                 .select('id, started_at, project_id, project_code, projects!inner(*)')
                 .eq('client_pid', finalPid)
@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
         if (!targetId && finalUid) {
             const cleanUid = finalUid.trim()
             const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-            const { data: rec } = await supabase
+            const { data: rec } = await insforge.database
                 .from('responses')
                 .select('id, started_at')
                 .eq('project_id', project.id)
@@ -189,7 +189,7 @@ export async function GET(request: NextRequest) {
 
         if (targetId) {
             console.log(`[status] Updating record ${targetId} to ${config.db}`)
-            const { error: updateError } = await supabase
+            const { error: updateError } = await insforge.database
                 .from('responses')
                 .update(updatePayload)
                 .eq('id', targetId)
@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
             // Fallback: If we didn't have a targetId but had a UID/Project, try updating the latest in_progress record
             console.log(`[status] Fallback update for uid=${finalUid}, project=${project.project_code} to ${config.db}`)
             const cleanUid = finalUid.trim()
-            const { error: fallbackError } = await supabase
+            const { error: fallbackError } = await insforge.database
                 .from('responses')
                 .update(updatePayload)
                 .eq('project_id', project.id)
@@ -219,14 +219,14 @@ export async function GET(request: NextRequest) {
         let supplierRedirectUrl: string | null = null
 
         if (targetId) {
-            const { data: responseRecord } = await supabase
+            const { data: responseRecord } = await insforge.database
                 .from('responses')
                 .select('supplier_token, supplier_uid, uid')
                 .eq('id', targetId)
                 .maybeSingle()
 
             if (responseRecord?.supplier_token) {
-                const { data: supplierData } = await supabase
+                const { data: supplierData } = await insforge.database
                     .from('suppliers')
                     .select('complete_redirect_url, terminate_redirect_url, quotafull_redirect_url')
                     .eq('supplier_token', responseRecord.supplier_token)
@@ -264,7 +264,7 @@ export async function GET(request: NextRequest) {
         // Recover UID from record if available, otherwise fallback to finalUid or N/A
         let displayUid = finalUid || 'N/A'
         if (targetId) {
-            const { data: recUid } = await supabase
+            const { data: recUid } = await insforge.database
                 .from('responses')
                 .select('supplier_uid, uid')
                 .eq('id', targetId)
@@ -276,7 +276,7 @@ export async function GET(request: NextRequest) {
         landingUrl.searchParams.set('uid', displayUid)
 
         if (targetId) {
-            const { data: cidData } = await supabase.from('responses').select('clickid').eq('id', targetId).maybeSingle();
+            const { data: cidData } = await insforge.database.from('responses').select('clickid').eq('id', targetId).maybeSingle();
             if (cidData?.clickid) {
                 landingUrl.searchParams.set('cid', cidData.clickid)
             }
