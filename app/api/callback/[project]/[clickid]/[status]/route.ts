@@ -18,20 +18,34 @@ export async function GET(
     const incomingStatus = allowedStatuses.includes(status) ? status : 'terminated'
 
     try {
-        // 1. Strict Update Logic
-        const { data: updateData, error: updateError, count } = await db.database
+        // 1. Unified Match: check clickid first, then supplier_uid
+        const { data: currentResp } = await db.database
+            .from('responses')
+            .select('id, status')
+            .eq('project_code', project)
+            .or(`clickid.eq.${clickid},supplier_uid.eq.${clickid}`)
+            .maybeSingle()
+
+        if (!currentResp) {
+            console.warn(`[Callback] Response not found for clickid: ${clickid} in project: ${project}`)
+            await db.database.from('callback_events').insert([{
+                clickid,
+                project_code: project,
+                incoming_status: status,
+                update_result: 'NOT_FOUND'
+            }])
+            return NextResponse.redirect(new URL(`/status/${clickid}`, request.url))
+        }
+
+        const { error: updateError } = await db.database
             .from('responses')
             .update({
                 status: incomingStatus,
                 updated_at: new Date().toISOString()
             })
-            .eq('clickid', clickid)
-            .eq('project_code', project)
-            .in('status', ['in_progress', 'started', 'click'])
+            .eq('id', currentResp.id)
 
-            .select()
-
-        const success = !updateError && count !== null && count > 0
+        const success = !updateError
 
         // 2. Audit Logging
         await db.database.from('callback_events').insert([{
@@ -42,7 +56,6 @@ export async function GET(
         }])
 
         // 3. Final Hub Redirect
-        // Redirect to /status/[clickid] for rendering
         return NextResponse.redirect(new URL(`/status/${clickid}`, request.url))
 
     } catch (e) {

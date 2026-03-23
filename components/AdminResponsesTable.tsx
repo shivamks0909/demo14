@@ -48,9 +48,9 @@ export default function AdminResponsesTable({ initialResponses }: { initialRespo
         // Subscription to Realtime
         const setupRealtime = async () => {
             await insforge.realtime.connect()
-            await insforge.realtime.subscribe('responses:admin')
+            await insforge.realtime.subscribe('responses')
 
-            insforge.realtime.on('INSERT_response', async (payload: any) => {
+            insforge.realtime.on('INSERT:responses', async (payload: any) => {
                 console.log('[Realtime] New Response:', payload)
                 const newRow = payload
 
@@ -67,7 +67,7 @@ export default function AdminResponsesTable({ initialResponses }: { initialRespo
                 setResponses(prev => [mappedRow, ...prev].slice(0, 500))
             })
 
-            insforge.realtime.on('UPDATE_response', (payload: any) => {
+            insforge.realtime.on('UPDATE:responses', (payload: any) => {
                 console.log('[Realtime] Updated Response:', payload)
                 const updatedRow = payload
                 setResponses(prev => prev.map(r =>
@@ -82,7 +82,7 @@ export default function AdminResponsesTable({ initialResponses }: { initialRespo
         setupRealtime()
 
         return () => {
-            insforge.realtime.unsubscribe('responses:admin')
+            insforge.realtime.unsubscribe('responses')
             insforge.realtime.disconnect()
         }
     }, [insforge])

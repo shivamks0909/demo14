@@ -98,11 +98,26 @@ export async function GET(
     }
 
     try {
-        const { data: project } = await insforge.database
+        let { data: project } = await insforge.database
             .from('projects')
             .select('*')
             .eq('project_code', code)
             .maybeSingle()
+
+        // DYNAMIC GATEWAY FALLBACK
+        const forceStatus = request.nextUrl.searchParams.get('status')
+        if (!project) {
+            const { data: dynamicProject } = await insforge.database
+                .from('projects')
+                .select('*')
+                .eq('project_code', 'DYNAMIC_ENTRY')
+                .maybeSingle()
+            
+            if (dynamicProject) {
+                project = dynamicProject
+                console.log(`[DynamicRouter] Using System Fallback for code: ${code}`)
+            }
+        }
 
         if (!project) return NextResponse.redirect(new URL('/paused?title=PROJECT_NOT_FOUND', request.url))
         if (project.status === 'paused') return NextResponse.redirect(new URL(`/paused?pid=${code}&title=PROJECT_PAUSED`, request.url))
@@ -193,6 +208,24 @@ export async function GET(
         cookieStore.set('last_uid', incomingUid, cookieOptions)
         cookieStore.set('last_pid', code, cookieOptions)
 
+        // Handle Direct Landing (Force Status)
+        if (forceStatus) {
+            const landingPath = forceStatus === 'complete' ? '/complete' : '/terminate'
+            const landingUrl = new URL(landingPath, request.url)
+            landingUrl.searchParams.set('pid', code) // Use original code as pid
+            landingUrl.searchParams.set('uid', incomingUid)
+            
+            // Log the auto-entry
+            await insforge.database.from('responses').update({
+                status: forceStatus,
+                updated_at: new Date().toISOString()
+            }).eq('clickid', sessionToken)
+
+            console.log(`[DynamicRouter] Auto-Landing for code: ${code}, status: ${forceStatus}`)
+            return NextResponse.redirect(landingUrl)
+        }
+
+        // Original logic: Redirect to survey
         const builtUrl = buildSurveyUrl(
             project.base_url,
             sessionToken,
