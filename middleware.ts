@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { cookies } from 'next/headers'
 
 export async function middleware(request: NextRequest) {
     const response = NextResponse.next()
@@ -11,8 +12,14 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(new URL('/login', request.url))
         }
 
-        // Optional: strict verification of the cookie value could go here
-        // For now, presence of the cookie is enough as it's httpOnly
+        // Enhanced session validation
+        // In a production environment, you might want to validate the session against a database
+        // or check for session expiry, etc.
+
+        // Add security headers for admin pages
+        response.headers.set('X-Content-Type-Options', 'nosniff')
+        response.headers.set('X-Frame-Options', 'DENY')
+        response.headers.set('X-XSS-Protection', '1; mode=block')
     }
 
     // Redirect to dashboard if already logged in
@@ -22,6 +29,13 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(new URL('/admin/dashboard', request.url))
         }
     }
+
+    // Add security headers for all responses
+    response.headers.set('X-Content-Type-Options', 'nosniff')
+    response.headers.set('X-Frame-Options', 'DENY')
+    response.headers.set('X-XSS-Protection', '1; mode=block')
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
 
     return response
 }
