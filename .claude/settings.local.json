@@ -4,7 +4,13 @@
       "Bash(dir:*)",
       "Bash(npm install:*)",
       "Bash(npm run:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git remote:*)",
+      "Bash(git push:*)",
+      "Bash(npx:*)",
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
