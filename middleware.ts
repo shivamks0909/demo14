@@ -1,54 +1,98 @@
-import { NextResponse, type NextRequest } from 'next/server'
-import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+// Admin routes that require authentication
+const ADMIN_ROUTES = ['/admin', '/api/admin']
+const LOGIN_ROUTE = '/login'
 
 export async function middleware(request: NextRequest) {
+    const pathname = request.nextUrl.pathname
+
+    // Check if this is an admin route
+    const isAdminRoute = ADMIN_ROUTES.some(route => pathname.startsWith(route))
+
+    // Skip middleware for login page and static assets
+    if (pathname === LOGIN_ROUTE || pathname.startsWith('/_next') || pathname.startsWith('/api/health')) {
+        return NextResponse.next()
+    }
+
+    // If accessing admin route, check for session cookie
+    if (isAdminRoute) {
+        const adminSession = request.cookies.get('admin_session')
+
+        if (!adminSession || !adminSession.value) {
+            // No session found - redirect to login
+            const loginUrl = new URL(LOGIN_ROUTE, request.url)
+            loginUrl.searchParams.set('redirect', pathname)
+            const response = NextResponse.redirect(loginUrl)
+            applySecurityHeaders(response, request)
+            return response
+        }
+
+        // Basic sanity check: prevent malformed sessions
+        if (adminSession.value.length < 10) {
+            console.warn('[Middleware] Malformed session cookie detected')
+            const response = NextResponse.redirect(new URL(LOGIN_ROUTE, request.url))
+            response.cookies.delete('admin_session')
+            applySecurityHeaders(response, request)
+            return response
+        }
+
+        // Defer deeper database validation to server components where Node.js APIs are available.
+    }
+
     const response = NextResponse.next()
+    applySecurityHeaders(response, request)
+    return response
+}
 
-    // Protected Admin Routes
-    if (request.nextUrl.pathname.startsWith('/admin')) {
-        const adminSession = request.cookies.get('admin_session')?.value
+// Extracted security header application for reuse
+function applySecurityHeaders(response: NextResponse, request: NextRequest) {
+    // Generate cryptographically secure random nonces for CSP
+    const nonce = crypto.randomUUID().replace(/-/g, '')
 
-        if (!adminSession) {
-            return NextResponse.redirect(new URL('/login', request.url))
-        }
-
-        // Enhanced session validation
-        // In a production environment, you might want to validate the session against a database
-        // or check for session expiry, etc.
-
-        // Add security headers for admin pages
-        response.headers.set('X-Content-Type-Options', 'nosniff')
-        response.headers.set('X-Frame-Options', 'DENY')
-        response.headers.set('X-XSS-Protection', '1; mode=block')
+    // HSTS (HTTP Strict Transport Security) - only on HTTPS
+    const forwardedProto = request.headers.get('x-forwarded-proto')
+    const isHttps = forwardedProto === 'https' || request.headers.get('x-forwarded-ssl') === 'on' || request.url.startsWith('https://')
+    if (isHttps) {
+        response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
     }
 
-    // Redirect to dashboard if already logged in
-    if (request.nextUrl.pathname === '/login') {
-        const adminSession = request.cookies.get('admin_session')?.value
-        if (adminSession) {
-            return NextResponse.redirect(new URL('/admin/dashboard', request.url))
-        }
-    }
+    // Content Security Policy (CSP) - strict, XSS protection
+    const csp = [
+        "default-src 'self'",
+        `script-src 'self' 'nonce-${nonce}'`,
+        `style-src 'self' 'nonce-${nonce}'`,
+        "img-src 'self' data:",
+        "font-src 'self' data:",
+        "connect-src 'self'",
+        "frame-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "upgrade-insecure-requests"
+    ].join('; ')
 
-    // Add security headers for all responses
+    response.headers.set('Content-Security-Policy', csp)
+
+    // Additional Security Headers
+    response.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()')
     response.headers.set('X-Content-Type-Options', 'nosniff')
     response.headers.set('X-Frame-Options', 'DENY')
-    response.headers.set('X-XSS-Protection', '1; mode=block')
-    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
     response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+    response.headers.set('X-XSS-Protection', '1; mode=block')
 
-    return response
+    // Expose nonce to downstream handlers via header for template injection
+    response.headers.set('x-csp-nonce', nonce)
+
+    // Modern Security Headers for Spectre/Meltdown protection
+    response.headers.set('Cross-Origin-Opener-Policy', 'same-origin')
+    response.headers.set('Cross-Origin-Embedder-Policy', 'require-corp')
+
+    // Enhanced Permissions Policy - restrict all sensors
+    response.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), magnetometer=(), gyroscope=(), accelerometer=(), ambient-light-sensor=()')
 }
 
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * Feel free to modify this pattern to include more paths.
-         */
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!_next/static|_next/image|favicon.ico).*)',
     ],
 }

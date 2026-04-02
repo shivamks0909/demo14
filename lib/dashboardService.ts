@@ -1,29 +1,58 @@
-import { createAdminClient } from '@/lib/insforge-server'
-import { KPIStats, ProjectAnalytics, Client, Project, Supplier, SupplierProjectLink } from '@/lib/types'
+import { createAdminClient } from './insforge-server'
 
-const notConfiguredError = { message: 'InsForge not configured' }
+const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL
+const apiKey = process.env.INSFORGE_API_KEY || process.env.NEXT_PUBLIC_ANON_KEY
+
+// Determine if we should use local fallback (no InsForge configured)
+function getUseLocal() {
+    const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL || process.env.NEXT_PUBLIC_APP_URL
+    const apiKey = process.env.INSFORGE_API_KEY || process.env.NEXT_PUBLIC_ANON_KEY 
+    return !baseUrl || !apiKey
+}
+
+// Lazy-load local service to avoid loading SQLite in production/serverless unnecessarily
+let localService: any = null
+
+async function getLocalService() {
+    if (!localService) {
+        const module = await import('./local-dashboardService')
+        localService = module.dashboardService
+    }
+    return localService
+}
 
 export const dashboardService = {
-    async getProjectAnalytics(clientId?: string): Promise<ProjectAnalytics[]> {
+    async getProjectAnalytics(clientId?: string): Promise<any[]> {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.getProjectAnalytics(clientId)
+        }
         const insforge = await createAdminClient()
         if (!insforge) return []
-        let query = insforge.database.rpc('get_project_analytics')
-        const { data, error } = await query
+        const { data, error } = await insforge.database.rpc('get_project_analytics')
         if (error) return []
-        return data as ProjectAnalytics[]
+        return data as any[]
     },
 
-    async getClients(): Promise<Client[]> {
+    async getClients() {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.getClients()
+        }
         const insforge = await createAdminClient()
         if (!insforge) return []
         const { data, error } = await insforge.database.from('clients').select('*').order('created_at', { ascending: false })
         if (error) return []
-        return data as Client[]
+        return data as any[]
     },
 
-    async createClient(name: string): Promise<{ data: Client | null; error: any }> {
+    async createClient(name: string) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.createClient(name)
+        }
         const insforge = await createAdminClient()
-        if (!insforge) return { data: null, error: notConfiguredError }
+        if (!insforge) return { data: null, error: { message: 'InsForge not configured' } }
         const { data, error } = await insforge.database
             .from('clients')
             .insert([{ name }])
@@ -32,9 +61,13 @@ export const dashboardService = {
         return { data, error }
     },
 
-    async deleteClient(id: string): Promise<{ error: any }> {
+    async deleteClient(id: string) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.deleteClient(id)
+        }
         const insforge = await createAdminClient()
-        if (!insforge) return { error: notConfiguredError }
+        if (!insforge) return { error: { message: 'InsForge not configured' } }
         const { error } = await insforge.database
             .from('clients')
             .delete()
@@ -42,7 +75,11 @@ export const dashboardService = {
         return { error }
     },
 
-    async getProjects(): Promise<(Project & { client_name: string })[]> {
+    async getProjects() {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.getProjects()
+        }
         const insforge = await createAdminClient()
         if (!insforge) return []
         const { data, error } = await insforge.database
@@ -61,15 +98,19 @@ export const dashboardService = {
             return []
         }
 
-        return (data as any[]).map(p => ({
+        return (data as any[]).map((p: any) => ({
             ...p,
             client_name: p.clients?.name || 'Unknown Client'
         }))
     },
 
-    async createProject(project: any): Promise<{ data: Project | null; error: any }> {
+    async createProject(project: any) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.createProject(project)
+        }
         const insforge = await createAdminClient()
-        if (!insforge) return { data: null, error: notConfiguredError }
+        if (!insforge) return { data: null, error: { message: 'InsForge not configured' } }
         const { data, error } = await insforge.database
             .from('projects')
             .insert([{ ...project, status: 'active' }])
@@ -78,9 +119,13 @@ export const dashboardService = {
         return { data, error }
     },
 
-    async updateProjectStatus(id: string, status: 'active' | 'paused'): Promise<{ error: any }> {
+    async updateProjectStatus(id: string, status: 'active' | 'paused') {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.updateProjectStatus(id, status)
+        }
         const insforge = await createAdminClient()
-        if (!insforge) return { error: notConfiguredError }
+        if (!insforge) return { error: { message: 'InsForge not configured' } }
         const { error } = await insforge.database
             .from('projects')
             .update({ status })
@@ -88,9 +133,13 @@ export const dashboardService = {
         return { error }
     },
 
-    async deleteProject(id: string): Promise<{ error: any }> {
+    async deleteProject(id: string) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.deleteProject(id)
+        }
         const insforge = await createAdminClient()
-        if (!insforge) return { error: notConfiguredError }
+        if (!insforge) return { error: { message: 'InsForge not configured' } }
         const { error } = await insforge.database
             .from('projects')
             .update({
@@ -101,176 +150,206 @@ export const dashboardService = {
         return { error }
     },
 
-    async getKPIs(): Promise<any> {
-        const metrics = await this.getProjectHealthMetrics()
-        const projects = await this.getProjects()
-
-        const clicks_today = metrics.reduce((sum, m) => sum + (m.clicks_today || 0), 0)
-        const completes_today = metrics.reduce((sum, m) => sum + (m.completes_today || 0), 0)
-        const duplicates_today = metrics.reduce((sum, m) => sum + (m.duplicates_today || 0), 0)
-        const security_terminates_today = metrics.reduce((sum, m) => sum + (m.security_terminates_today || 0), 0)
-        const quotafull_today = metrics.reduce((sum, m) => sum + (m.quotafull_today || 0), 0)
-        const terminates_today = metrics.reduce((sum, m) => sum + (m.terminates_today || 0), 0)
-        const in_progress_today = metrics.reduce((sum, m) => sum + (m.in_progress_today || 0), 0)
-        const active_projects = projects.filter(p => p.status === 'active').length
-
-        return {
-            clicks_today,
-            completes_today,
-            duplicates_today,
-            security_terminates_today,
-            quotafull_today,
-            terminates_today,
-            in_progress_today,
-            active_projects,
-            total_projects: projects.length
+    async getKPIs() {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.getKPIs()
         }
+        const insforge = await createAdminClient()
+        if (!insforge) {
+            return {
+                total_projects: 0, active_projects: 0, total_clicks_today: 0, clicks_today: 0,
+                total_responses: 0, total_completes_today: 0, completes_today: 0, terminates_today: 0,
+                quotafull_today: 0, in_progress_today: 0, duplicates_today: 0, security_terminates_today: 0
+            }
+        }
+        const { data, error } = await insforge.database.rpc('get_kpis')
+        if (error) return {
+            total_projects: 0, active_projects: 0, total_clicks_today: 0, clicks_today: 0,
+            total_responses: 0, total_completes_today: 0, completes_today: 0, terminates_today: 0,
+            quotafull_today: 0, in_progress_today: 0, duplicates_today: 0, security_terminates_today: 0
+        }
+        return data as any
     },
 
-    async getProjectHealthMetrics(): Promise<any[]> {
+    async getProjectHealthMetrics() {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.getProjectHealthMetrics()
+        }
         const insforge = await createAdminClient()
         if (!insforge) return []
-
-        // Fetch all active projects
-        const { data: projects, error: projectsError } = await insforge.database
-            .from('projects')
-            .select('id, project_code')
-            .is('deleted_at', null)
-
-        if (projectsError || !projects) return []
-
-        // Fetch all responses from today
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const { data: responses, error: responsesError } = await insforge.database
-            .from('responses')
-            .select('project_id, status')
-            .gte('created_at', today.toISOString())
-
-        if (responsesError || !responses) return []
-
-        // Process metrics
-        const metrics = projects.map(p => {
-            const projResponses = responses.filter(r => r.project_id === p.id)
-
-            // "Clicks" should represent all entries. Previously, if a response became 'complete', 
-            // it was no longer 'in_progress', dropping the click count. This fixes that.
-            const clicks_today = projResponses.length
-            const completes_today = projResponses.filter(r => r.status === 'complete').length
-            const duplicates_today = projResponses.filter(r => ['duplicate_ip', 'duplicate_string'].includes(r.status)).length
-            const security_terminates_today = projResponses.filter(r => r.status === 'security_terminate').length
-            const quotafull_today = projResponses.filter(r => ['quota', 'quota_full'].includes(r.status)).length
-            const terminates_today = projResponses.filter(r => ['terminate', 'terminated'].includes(r.status)).length
-            const in_progress_today = projResponses.filter(r => r.status === 'in_progress').length
-
-            const conversion_rate = clicks_today > 0 ? (completes_today / clicks_today) * 100 : 0
-
-            return {
-                project_id: p.id,
-                project_code: p.project_code,
-                clicks_today,
-                completes_today,
-                duplicates_today,
-                security_terminates_today,
-                quotafull_today,
-                terminates_today,
-                in_progress_today,
-                conversion_rate
-            }
-        })
-
-        return metrics
+        const { data, error } = await insforge.database.rpc('get_project_health_metrics')
+        if (error) return []
+        return (data as any[]).map((m: any) => ({
+            ...m,
+            project_code: m.project_code || 'Unknown',
+            project_name: m.project_name || 'Unknown',
+            clicks_today: m.clicks_today || 0,
+            in_progress_today: m.in_progress_today || 0,
+            completes_today: m.completes_today || 0,
+            terminates_today: m.terminates_today || 0,
+            quotafull_today: m.quotafull_today || 0,
+            duplicates_today: m.duplicates_today || 0,
+            security_terminates_today: m.security_terminates_today || 0,
+        }))
     },
 
-    async getProjectById(id: string): Promise<Project | null> {
+    async getProjectById(id: string) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.getProjectById(id)
+        }
         const insforge = await createAdminClient()
         if (!insforge) return null
-        const { data, error } = await insforge.database.from('projects').select('*').eq('id', id).single()
+        const { data, error } = await insforge.database.from('projects').select('*').eq('id', id).maybeSingle()
         if (error) return null
-        return data as Project
+        return data as any || null
     },
 
-    async updateProject(id: string, project: Partial<Project>): Promise<{ error: any }> {
+    async updateProject(id: string, project: any) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.updateProject(id, project)
+        }
         const insforge = await createAdminClient()
-        if (!insforge) return { error: notConfiguredError }
+        if (!insforge) return { error: { message: 'InsForge not configured' } }
         const { error } = await insforge.database.from('projects').update(project).eq('id', id)
         return { error }
     },
 
-    async getResponses(filters?: { ip?: string; status?: string; device_type?: string }): Promise<any[]> {
+    async getResponses(filters?: { ip?: string; status?: string; device_type?: string }) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.getResponses(filters)
+        }
         const insforge = await createAdminClient()
         if (!insforge) return []
-        let query = insforge.database
-            .from('responses')
-            .select(`
-                *,
-                projects (
-                    project_name
-                )
-            `)
-            .order('created_at', { ascending: false })
-            .limit(200)
-
+        let query = insforge.database.from('responses').select('*, projects(project_code, project_name)')
+        
         if (filters?.ip) query = query.ilike('ip', `%${filters.ip}%`)
         if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status)
         if (filters?.device_type && filters.device_type !== 'all') query = query.eq('device_type', filters.device_type)
-
-        const { data, error } = await query
+        
+        const { data, error } = await query.order('created_at', { ascending: false }).limit(200)
         if (error) {
-            console.error('Error fetching responses:', error)
+            console.error('[getResponses] Error:', error)
             return []
         }
-
-        return data.map(r => ({
+        return (data as any[]).map(r => ({
             ...r,
-            uid: r.uid || 'N/A',
-            project_code: r.project_code || 'Unknown',
-            project_name: (r.projects as any)?.project_name || r.project_code || 'Unknown',
-            ip: r.ip || null,
+            project_code: r.projects?.project_code || 'Unknown',
+            project_name: r.projects?.project_name || 'Unknown'
         }))
     },
 
-    async flushResponses(): Promise<{ error: any }> {
+    async createResponse(response: any) {
+        if (getUseLocal()) {
+            // Local fallback doesn't have createResponse, but we don't usually create manually there
+            return { data: null, error: { message: 'Not implemented locally' } }
+        }
         const insforge = await createAdminClient()
-        if (!insforge) return { error: notConfiguredError }
+        if (!insforge) return { data: null, error: { message: 'InsForge not configured' } }
+        const { data, error } = await insforge.database
+            .from('responses')
+            .insert([response])
+            .select()
+            .single()
+        return { data, error }
+    },
+
+    async updateResponse(id: string, updates: any) {
+        if (getUseLocal()) {
+            return { error: { message: 'Not implemented locally' } }
+        }
+        const insforge = await createAdminClient()
+        if (!insforge) return { error: { message: 'InsForge not configured' } }
+        const { error } = await insforge.database
+            .from('responses')
+            .update(updates)
+            .eq('id', id)
+        return { error }
+    },
+
+    async deleteResponse(id: string) {
+        if (getUseLocal()) {
+            return { error: { message: 'Not implemented locally' } }
+        }
+        const insforge = await createAdminClient()
+        if (!insforge) return { error: { message: 'InsForge not configured' } }
+        const { error } = await insforge.database
+            .from('responses')
+            .delete()
+            .eq('id', id)
+        return { error }
+    },
+
+    async flushResponses() {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.flushResponses()
+        }
+        const insforge = await createAdminClient()
+        if (!insforge) return { error: { message: 'InsForge not configured' } }
         const { error } = await insforge.database
             .from('responses')
             .delete()
             .neq('id', '00000000-0000-0000-0000-000000000000')
         return { error }
     },
-    async getSuppliers(): Promise<Supplier[]> {
+
+    async getSuppliers() {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.getSuppliers()
+        }
         const insforge = await createAdminClient()
         if (!insforge) return []
         const { data, error } = await insforge.database.from('suppliers').select('*').order('created_at', { ascending: false })
         if (error) return []
-        return data as Supplier[]
+        return data as any[]
     },
 
-    async getSupplierByToken(token: string): Promise<Supplier | null> {
+    async getSupplierByToken(token: string) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.getSupplierByToken(token)
+        }
         const insforge = await createAdminClient()
         if (!insforge) return null
         const { data } = await insforge.database.from('suppliers').select('*').eq('supplier_token', token).eq('status', 'active').maybeSingle()
-        return data as Supplier | null
+        return data as any || null
     },
 
-    async createSupplier(supplier: Omit<Supplier, 'id' | 'created_at'>): Promise<{ data: Supplier | null; error: any }> {
+    async createSupplier(supplier: any) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.createSupplier(supplier)
+        }
         const insforge = await createAdminClient()
-        if (!insforge) return { data: null, error: { message: 'Supabase not configured' } }
+        if (!insforge) return { data: null, error: { message: 'InsForge not configured' } }
         const { data, error } = await insforge.database.from('suppliers').insert([supplier]).select().single()
         return { data, error }
     },
 
-    async updateSupplier(id: string, supplier: Partial<Supplier>): Promise<{ error: any }> {
+    async updateSupplier(id: string, supplier: any) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.updateSupplier(id, supplier)
+        }
         const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'Supabase not configured' } }
+        if (!insforge) return { error: { message: 'InsForge not configured' } }
         const { error } = await insforge.database.from('suppliers').update(supplier).eq('id', id)
         return { error }
     },
 
-    async deleteSupplier(id: string): Promise<{ error: any }> {
+    async deleteSupplier(id: string) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.deleteSupplier(id)
+        }
         const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'Supabase not configured' } }
+        if (!insforge) return { error: { message: 'InsForge not configured' } }
 
         // 1. Remove project links first to avoid FK constraint errors
         const { error: unlinkError } = await insforge.database.from('supplier_project_links').delete().eq('supplier_id', id)
@@ -298,7 +377,11 @@ export const dashboardService = {
         return { error: null }
     },
 
-    async getSupplierProjectLinks(projectId: string): Promise<(SupplierProjectLink & { supplier: Supplier })[]> {
+    async getSupplierProjectLinks(projectId: string) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.getSupplierProjectLinks(projectId)
+        }
         const insforge = await createAdminClient()
         if (!insforge) return []
         const { data, error } = await insforge.database
@@ -309,18 +392,26 @@ export const dashboardService = {
         return data as any[]
     },
 
-    async linkSupplierToProject(supplierId: string, projectId: string, quotaAllocated = 0): Promise<{ error: any }> {
+    async linkSupplierToProject(supplierId: string, projectId: string, quotaAllocated = 0) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.linkSupplierToProject(supplierId, projectId, quotaAllocated)
+        }
         const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'Supabase not configured' } }
+        if (!insforge) return { error: { message: 'InsForge not configured' } }
         const { error } = await insforge.database.from('supplier_project_links')
             .upsert([{ supplier_id: supplierId, project_id: projectId, quota_allocated: quotaAllocated, status: 'active' }],
                 { onConflict: 'supplier_id,project_id' })
         return { error }
     },
 
-    async unlinkSupplierFromProject(supplierId: string, projectId: string): Promise<{ error: any }> {
+    async unlinkSupplierFromProject(supplierId: string, projectId: string) {
+        if (getUseLocal()) {
+            const local = await getLocalService()
+            return await local.unlinkSupplierFromProject(supplierId, projectId)
+        }
         const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'Supabase not configured' } }
+        if (!insforge) return { error: { message: 'InsForge not configured' } }
         const { error } = await insforge.database.from('supplier_project_links')
             .delete().eq('supplier_id', supplierId).eq('project_id', projectId)
         return { error }

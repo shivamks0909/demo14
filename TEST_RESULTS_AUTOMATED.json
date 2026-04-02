@@ -1,0 +1,86 @@
+{
+  "timestamp": "2026-03-31T08:15:36.507Z",
+  "baseUrl": "http://localhost:3000",
+  "summary": {
+    "passed": 10,
+    "failed": 5,
+    "warnings": 8
+  },
+  "tests": [
+    {
+      "name": "Database file exists at ./data/test_local.db",
+      "status": "PASSED",
+      "details": ""
+    },
+    {
+      "name": "Table 'projects' exists",
+      "status": "PASSED",
+      "details": ""
+    },
+    {
+      "name": "Table 'responses' exists",
+      "status": "PASSED",
+      "details": ""
+    },
+    {
+      "name": "Table 'audit_logs' exists",
+      "status": "PASSED",
+      "details": ""
+    },
+    {
+      "name": "Table 'suppliers' exists",
+      "status": "PASSED",
+      "details": ""
+    },
+    {
+      "name": "Table 'supplier_project_links' exists",
+      "status": "PASSED",
+      "details": ""
+    },
+    {
+      "name": "Table 'clients' exists",
+      "status": "PASSED",
+      "details": ""
+    },
+    {
+      "name": "Projects table has data (3 projects)",
+      "status": "PASSED",
+      "details": ""
+    },
+    {
+      "name": "Responses table has data (2 responses)",
+      "status": "PASSED",
+      "details": ""
+    },
+    {
+      "name": "TypeScript compilation",
+      "status": "FAILED",
+      "details": "app/status/[clickid]/page.tsx(1,10): error TS2724: '\"@/lib/tracking-service\"' has no exported member named 'trackingService'. Did you mean 'TrackingService'?\r\ncomponents/ProjectList.tsx(131,21): error TS2322: Type '{ hidden: { opacity: number; y: number; }; visible: { opacity: number; y: number; transition: { duration: number; ease: number[]; }; }; }' is not assignable to type 'Variants'.\r\n  Property 'visible' is incompatible with index signature.\r\n    Type '{ opacity: number; y: number; transition: { duration: number; ease: number[]; }; }' is not assignable to type 'Variant'.\r\n      Type '{ opacity: number; y: number; transition: { duration: number; ease: number[]; }; }' is not assignable to type 'TargetAndTransition'.\r\n        Type '{ opacity: number; y: number; transition: { duration: number; ease: number[]; }; }' is not assignable to type '{ transition?: Transition<any> | undefined; transitionEnd?: ResolvedValues$1 | undefined; }'.\r\n          Types of property 'transition' are incompatible.\r\n            Type '{ duration: number; ease: number[]; }' is not assignable to type 'Transition<any> | undefined'.\r\n              Type '{ duration: number; ease: number[]; }' is not assignable to type 'TransitionWithValueOverrides<any>'.\r\n                Type '{ duration: number; ease: number[]; }' is not assignable to type 'ValueAnimationTransition<any>'.\r\n                  Types of property 'ease' are incompatible.\r\n                    Type 'number[]' is not assignable to type 'Easing | Easing[] | undefined'.\r\n                      Type 'number[]' is not assignable to type 'EasingFunction | Easing[]'.\r\n                        Type 'number[]' is not assignable to type 'Easing[]'.\r\n                          Type 'number' is not assignable to type 'Easing'.\r\nlib/tracking-tests.ts(6,10): error TS2724: '\"./tracking-service\"' has no exported member named 'trackingService'. Did you mean 'TrackingService'?\r\nlib/tracking-tests.ts(227,43): error TS7006: Parameter 'r' implicitly has an 'any' type.\r\n"
+    },
+    {
+      "name": "NEXT_PUBLIC_INSFORGE_URL is empty/unset (local mode enabled)",
+      "status": "PASSED",
+      "details": ""
+    },
+    {
+      "name": "Dev server connectivity",
+      "status": "FAILED",
+      "details": ""
+    },
+    {
+      "name": "Login page load",
+      "status": "FAILED",
+      "details": ""
+    },
+    {
+      "name": "Protected route check",
+      "status": "FAILED",
+      "details": ""
+    },
+    {
+      "name": "Auth bypass check",
+      "status": "FAILED",
+      "details": ""
+    }
+  ]
+}

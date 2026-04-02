@@ -1,11 +1,12 @@
 import { dashboardService } from '@/lib/dashboardService'
+import type { Client } from '@/lib/types'
 import ClientForm from '@/components/ClientForm'
 import DeleteClientButton from '@/components/DeleteClientButton'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AdminClientsPage() {
-    const clients = await dashboardService.getClients()
+    const clients = (await dashboardService.getClients()) as Client[]
 
     return (
         <div className="space-y-6">

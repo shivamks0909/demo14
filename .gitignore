@@ -1,18 +1,22 @@
-node_modules
-.next
+# Dependencies
+node_modules/
+
+# Build output
+.next/
+out/
+
+# Local database
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Environment files
 .env
 .env.local
+.env*.local
 .env.production
-.env.development
-.DS_Store
-
-.vercel
-
-.vercel
-.env*.local
-
-.vercel
-.env*.local
+.env.local.backup
 
 # InsForge & AI agent skills
 .insforge
@@ -21,6 +25,7 @@ node_modules
 .augment
 .claude
 .cline
+.codex
 .github/copilot*
 .kilocode
 .qoder
@@ -28,3 +33,29 @@ node_modules
 .roo
 .trae
 .windsurf
+
+# Vercel
+.vercel
+
+# IDE
+.vscode
+
+# Test/temp files
+*.log
+*.txt
+!README.md
+test-results/
+playwright-report/
+tmp/
+temp_demo*.png
+temp_demo.ts
+temp_seed.js
+
+# Build logs
+build_err.log
+build_error.log
+build_error_cmd.log
+build_error_cmd2.log
+build_new.log
+dev_server.log
+dev_server_local.log

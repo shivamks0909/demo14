@@ -1,7 +1,7 @@
 'use server'
 
-import { createAdminClient } from '@/lib/insforge-server'
-import bcrypt from 'bcrypt'
+import { getUnifiedDb } from '@/lib/unified-db'
+import bcrypt from 'bcryptjs'
 
 // Require master key to be set in environment
 const MASTER_KEY = process.env.ADMIN_MASTER_KEY
@@ -30,56 +30,48 @@ export async function resetAdminCredentials(formData: FormData) {
         return { success: false, error: 'Email and Password are required' }
     }
 
-    const insforge = await createAdminClient()
+    const insforge = await getUnifiedDb()
     if (!insforge) {
-        return { success: false, error: 'Database is not configured. Add Supabase credentials to .env.local.' }
+        return { success: false, error: 'Database is not configured.' }
     }
+    const db = insforge.database
 
     try {
-        // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
         if (!emailRegex.test(email)) {
             return { success: false, error: 'Invalid email format' }
         }
-
-        // Validate password strength
         if (password.length < 8) {
             return { success: false, error: 'Password must be at least 8 characters long' }
         }
 
         const hashedPassword = await bcrypt.hash(password, 12)
 
-        // Check if admin exists
-        const { data: existingAdmin } = await insforge.database
+        const { data: existingAdmin } = await db
             .from('admins')
             .select('id')
             .eq('email', email)
-            .single()
+            .maybeSingle()
 
         let error
         if (existingAdmin) {
-            // Update existing
-            const { error: updateError } = await insforge.database
+            const { error: updateError } = await db
                 .from('admins')
                 .update({ password_hash: hashedPassword })
                 .eq('id', existingAdmin.id)
             error = updateError
         } else {
-            // Create new
-            const { error: insertError } = await insforge.database
+            const { error: insertError } = await db
                 .from('admins')
-                .insert({
-                    email,
-                    password_hash: hashedPassword
-                })
+                .insert([{ id: `adm_${Date.now()}`, email, password_hash: hashedPassword, created_at: new Date().toISOString() }])
             error = insertError
         }
 
         if (error) throw error
-
         return { success: true }
     } catch (err) {
         console.error('Reset error:', err)
         return { success: false, error: 'Database error occurred' }
     }
 }
+

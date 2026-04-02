@@ -39,6 +39,12 @@ const STATUS_CONFIG: Record<string, { headline: string; sub: string; colors: str
     colors: ["#a78bfa", "#8b5cf6", "#7c3aed", "#c084fc", "#818cf8"],
     glow: "#a78bfa",
   },
+  paused: {
+    headline: "Project Paused",
+    sub: "This project is currently paused by the administrator.",
+    colors: ["#fbbf24", "#f59e0b", "#f97316", "#fb923c", "#fcd34d"],
+    glow: "#fbbf24",
+  },
 };
 
 export function WavyOutcomeView({ status, statusKeyword }: WavyOutcomeViewProps) {
@@ -76,9 +82,15 @@ export function WavyOutcomeView({ status, statusKeyword }: WavyOutcomeViewProps)
     : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
   const cfg = STATUS_CONFIG[statusKeyword] ?? STATUS_CONFIG.terminate;
+
+  // Allow custom title/desc from query params (used by paused page)
+  const customTitle = params.title || undefined;
+  const customDesc = params.desc || undefined;
+
   const cards = [
     { label: "Project ID", value: pid },
     { label: "User ID", value: uid },
+    { label: "IP Address", value: sanitize(stats?.ip || params.ip) },
     { label: "Status", value: status },
     { label: "LOI", value: loiStr },
     { label: "Date", value: dateStr },
@@ -96,8 +108,12 @@ export function WavyOutcomeView({ status, statusKeyword }: WavyOutcomeViewProps)
       <div style={{ fontFamily: "'Inter', sans-serif" }} className="flex flex-col items-center justify-center gap-8 px-6 text-center">
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-[0.4em] text-white/40 font-medium">OpinionInsights</p>
-          <h1 className="text-5xl md:text-7xl font-black text-white tracking-tight drop-shadow-2xl">{cfg.headline}</h1>
-          <p className="text-white/60 text-base mt-1">{cfg.sub}</p>
+          <h1 className="text-5xl md:text-7xl font-black text-white tracking-tight drop-shadow-2xl">
+            {customTitle || cfg.headline}
+          </h1>
+          <p className="text-white/60 text-base mt-1">
+            {customDesc || cfg.sub}
+          </p>
         </div>
         <div className="w-48 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
         <div className="flex flex-wrap justify-center gap-3 w-full max-w-4xl">

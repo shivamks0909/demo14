@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/insforge'
 
 interface Response {
     id: string
@@ -22,70 +21,13 @@ interface Response {
 export default function AdminResponsesTable({ initialResponses }: { initialResponses: Response[] }) {
     const [responses, setResponses] = useState<Response[]>(initialResponses)
     const [isLive, setIsLive] = useState(false)
-    const insforge = createClient()
 
     useEffect(() => {
-        // Cache for project names to avoid repeated fetches
-        const projectCache: Record<string, string> = {}
-        responses.forEach(r => {
-            if (r.project_code && r.project_name) projectCache[r.project_code] = r.project_name
-        })
+        // Realtime updates disabled for local database
+        // You can manually refresh the page to see new responses
+        return () => {}
+    }, [])
 
-        const fetchProjectName = async (projectId: string, projectCode: string) => {
-            if (projectCache[projectCode]) return projectCache[projectCode]
-
-            const { data } = await insforge.database
-                .from('projects')
-                .select('project_name')
-                .eq('id', projectId)
-                .single()
-
-            const name = data?.project_name || projectCode || 'Unknown'
-            projectCache[projectCode] = name
-            return name
-        }
-
-        // Subscription to Realtime
-        const setupRealtime = async () => {
-            await insforge.realtime.connect()
-            await insforge.realtime.subscribe('responses')
-
-            insforge.realtime.on('INSERT:responses', async (payload: any) => {
-                console.log('[Realtime] New Response:', payload)
-                const newRow = payload
-
-                const projectName = await fetchProjectName(newRow.project_id, newRow.project_code)
-
-                const mappedRow: Response = {
-                    ...newRow,
-                    project_name: projectName,
-                    supplier_uid: newRow.supplier_uid,
-                    client_uid_sent: newRow.client_uid_sent,
-                    uid: newRow.uid || 'N/A',
-                    ip: newRow.ip || 'N/A'
-                }
-                setResponses(prev => [mappedRow, ...prev].slice(0, 500))
-            })
-
-            insforge.realtime.on('UPDATE:responses', (payload: any) => {
-                console.log('[Realtime] Updated Response:', payload)
-                const updatedRow = payload
-                setResponses(prev => prev.map(r =>
-                    r.id === updatedRow.id ? { ...r, ...updatedRow } : r
-                ))
-            })
-
-            insforge.realtime.on('connect', () => setIsLive(true))
-            insforge.realtime.on('disconnect', () => setIsLive(false))
-        }
-
-        setupRealtime()
-
-        return () => {
-            insforge.realtime.unsubscribe('responses')
-            insforge.realtime.disconnect()
-        }
-    }, [insforge])
 
     // IP Activity Logic for badges
     const today = new Date().toDateString()
@@ -125,7 +67,7 @@ export default function AdminResponsesTable({ initialResponses }: { initialRespo
                     <tbody className="bg-white divide-y divide-gray-100">
                         {responses.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="px-6 py-12 text-center text-gray-400 italic text-sm">
+                                <td colSpan={9} className="px-6 py-12 text-center text-gray-400 italic text-sm">
                                     No tracking data matching filters.
                                 </td>
                             </tr>

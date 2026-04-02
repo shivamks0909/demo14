@@ -1,45 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/insforge-server'
-
-export const runtime = "nodejs";
+import { getUnifiedDb } from '@/lib/unified-db'
 
 export async function GET(
     request: NextRequest,
     context: { params: Promise<{ session: string }> }
 ) {
     const { session } = await context.params
-    const insforge = await createAdminClient()
-    
-    if (!insforge) {
-        return NextResponse.json({ error: 'DB not configured' }, { status: 500 })
+    if (!session || session === '-') {
+        return NextResponse.json({ error: 'invalid session' }, { status: 400 })
     }
 
+    const { database: db } = await getUnifiedDb()
+    if (!db) return NextResponse.json({ error: 'system offline' }, { status: 503 })
+
     try {
-        const { data: response, error } = await insforge.database
+        const { data: response, error } = await db
             .from('responses')
-            .select('*')
-            .eq('oi_session', session)
+            .select('supplier_uid, project_code, start_time, updated_at, status, ip')
+            .eq('clickid', session)
             .maybeSingle()
 
         if (error || !response) {
-            return NextResponse.json({ error: 'Not found' }, { status: 404 })
+            return NextResponse.json({ error: 'not found' }, { status: 404 })
         }
 
-        // Return stats specifically formatted for Wavy/Quirky views
-        return NextResponse.json({
-            id: response.id,
-            projectCode: response.project_code,
-            supplierRid: response.supplier_uid || response.uid,
-            ip: response.ip,
-            status: response.status,
-            loi: response.duration_seconds ? Math.round(response.duration_seconds / 60) : 0,
-            loiSeconds: response.duration_seconds || 0,
-            endTime: response.completed_at ? Math.floor(new Date(response.completed_at).getTime() / 1000) : null,
-            startTime: response.start_time ? Math.floor(new Date(response.start_time).getTime() / 1000) : null
-        })
+        // Calculate LOI in seconds if possible
+        let loi = 0
+        if (response.start_time && response.updated_at) {
+            const start = new Date(response.start_time).getTime()
+            const end = new Date(response.updated_at).getTime()
+            loi = Math.floor((end - start) / 1000)
+        }
 
+        return NextResponse.json({
+            supplierRid: response.supplier_uid,
+            projectCode: response.project_code,
+            status: response.status,
+            ip: response.ip,
+            loi: Math.floor(loi / 60), // Return minutes for the component
+            endTime: response.updated_at ? Math.floor(new Date(response.updated_at).getTime() / 1000) : null
+        })
     } catch (e) {
-        console.error('[respondent-stats] error:', e)
-        return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+        return NextResponse.json({ error: 'server error' }, { status: 500 })
     }
 }

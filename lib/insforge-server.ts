@@ -1,12 +1,12 @@
 import { createClient as createInsForgeClient } from '@insforge/sdk'
 import { cookies } from 'next/headers'
 
-const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL
-const apiKey = process.env.INSFORGE_API_KEY
-
 export async function createAdminClient() {
+  const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL
+  const apiKey = process.env.INSFORGE_API_KEY || process.env.NEXT_PUBLIC_ANON_KEY
+
   if (!baseUrl || !apiKey) {
-    console.error('InsForge configuration missing: NEXT_PUBLIC_INSFORGE_URL or INSFORGE_API_KEY not set')
+    console.error('InsForge configuration missing: URL=', baseUrl, ' KEY=', !!apiKey)
     return null
   }
 
@@ -17,11 +17,13 @@ export async function createAdminClient() {
 }
 
 export async function createServerClient() {
-  // Access cookies if needed
   const cookieStore = await cookies()
   
+  const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL
+  const apiKey = process.env.INSFORGE_API_KEY || process.env.NEXT_PUBLIC_ANON_KEY
+  
   if (!baseUrl || !apiKey) {
-    console.error('InsForge configuration missing')
+    console.error('InsForge server configuration missing: URL=', baseUrl, ' KEY=', !!apiKey)
     return null
   }
 

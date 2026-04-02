@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/insforge-server'
 import { getClientIp } from '@/lib/getClientIp'
+import { auditService } from '@/lib/audit-service'
 import crypto from 'crypto'
 
 export const runtime = "nodejs";
@@ -116,16 +117,20 @@ export async function GET(request: NextRequest) {
                 if (vercelCountry) {
                     geoCountry = vercelCountry
                 } else {
-                    const geoRes = await fetch(`http://ip-api.com/json/${ip}`)
-                    const geoData = await geoRes.json()
-                    if (geoData.status === 'success') {
-                        geoCountry = geoData.countryCode
-                    }
+                    // Use production GeoIP service with caching
+                    const { getCountryFromIp } = await import('@/lib/geoip-service')
+                    geoCountry = await getCountryFromIp(request, ip)
                 }
 
                 // Rule: GeoIP Mismatch
                 if (countryParam && countryParam !== geoCountry) {
                     console.log(`Geo Mismatch: Param=${countryParam}, Geo=${geoCountry}`);
+                    await auditService.log({
+                        event_type: 'entry_denied',
+                        payload: { reason: 'geo_mismatch', project_code: code, uid: validatedUid, country_param: countryParam, geo_country: geoCountry },
+                        ip,
+                        user_agent: userAgent
+                    });
                     const mismatchUrl = new URL('/paused', request.url);
                     mismatchUrl.searchParams.set('pid', code);
                     mismatchUrl.searchParams.set('title', 'GEO MISMATCH');
@@ -286,14 +291,39 @@ export async function GET(request: NextRequest) {
             tokenToUse = project.target_uid
         }
 
-        // --- HMAC SIGNATURE GENERATION ---
+        // --- HMAC SIGNATURE GENERATION (per-project secret from s2s_config) ---
         let signature = '';
-        if (process.env.CALLBACK_SECRET && tokenToUse) {
-            const cryptoMod = await import('crypto');
-            signature = cryptoMod
-                .createHmac("sha256", process.env.CALLBACK_SECRET)
-                .update(tokenToUse)
-                .digest("hex");
+        let s2sConfigForSig = null;
+
+        try {
+            const { data: s2sConfig } = await insforge.database
+                .from('s2s_config')
+                .select('secret_key')
+                .eq('project_id', project.id)
+                .maybeSingle();
+
+            s2sConfigForSig = s2sConfig;
+
+            if (s2sConfigForSig && s2sConfigForSig.secret_key) {
+                // Build canonical string: sorted keys alphabetically
+                // The callback will verify with (pid, cid, type)
+                const paramsForSig: Record<string, string> = {
+                    pid: project.project_code,
+                    cid: sessionToken,
+                    type: 'complete' // Default type - can be parameterized if needed
+                };
+                const canonical = Object.keys(paramsForSig)
+                    .sort()
+                    .map(k => `${k}=${paramsForSig[k]}`)
+                    .join('&');
+
+                signature = crypto
+                    .createHmac('sha256', s2sConfigForSig.secret_key)
+                    .update(canonical)
+                    .digest('hex');
+            }
+        } catch (err) {
+            console.warn('[Track] S2S config fetch failed, signature not generated:', err);
         }
 
         // 8. Replace PID & UID placeholders if client URL uses them

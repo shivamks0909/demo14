@@ -1,74 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/insforge-server'
+import { getUnifiedDb } from '@/lib/unified-db'
 import { getClientIp } from '@/lib/getClientIp'
-import { cookies } from 'next/headers'
-import crypto from 'crypto'
+import { TrackingService, EntryContext } from '@/lib/tracking-service'
+import { auditService } from '@/lib/audit-service'
 
 export const runtime = "nodejs"
-
-type UidParamConfig = {
-    param: string
-    value: 'client_rid' | 'supplier_uid' | 'session' | 'hash' | string
-}
-
-function buildSurveyUrl(
-    rawUrl: string,
-    sessionToken: string,
-    clientRid: string,
-    supplierUid: string,
-    hashId: string,
-    prefix: string,
-    clientPidParam?: string | null,
-    clientUidParam?: string | null,
-    uidParams?: UidParamConfig[] | null
-): string {
-    const url = new URL(rawUrl)
-
-    // CRITICAL FIX: forceSet always overwrites — even empty/placeholder params
-    const forceSet = (key: string, value: string) => {
-        url.searchParams.set(key, value)
-    }
-
-    const resolveValue = (valueType: string): string => {
-        switch (valueType) {
-            case 'client_rid':   return clientRid
-            case 'supplier_uid': return supplierUid
-            case 'session':      return sessionToken
-            case 'hash':         return hashId
-            default:             return valueType
-        }
-    }
-
-    // Session always injected
-    forceSet(`${prefix}session`, sessionToken)
-
-    // Priority 1: uid_params array (multi param mode)
-    if (uidParams && uidParams.length > 0) {
-        for (const cfg of uidParams) {
-            if (cfg.param) forceSet(cfg.param, resolveValue(cfg.value))
-        }
-        return url.toString()
-    }
-
-    // Priority 2: legacy single param mode
-    if (clientPidParam) forceSet(clientPidParam, clientRid)
-    if (clientUidParam) forceSet(clientUidParam, clientRid)
-
-    // Priority 3: default fallback
-    if (!clientPidParam && !clientUidParam) {
-        let injected = false
-        const PLACEHOLDERS = ['', '[UID]', '{uid}', '##RID##', 'REPLACE', '[RID]', '{rid}']
-        for (const [key, val] of url.searchParams.entries()) {
-            if (PLACEHOLDERS.includes(val)) {
-                forceSet(key, clientRid)
-                injected = true
-            }
-        }
-        if (!injected) forceSet(`${prefix}uid`, clientRid)
-    }
-
-    return url.toString()
-}
 
 export async function GET(
     request: NextRequest,
@@ -76,7 +12,9 @@ export async function GET(
 ) {
     const { code, slug } = await context.params
     const ip = getClientIp(request)
+    const userAgent = request.headers.get('user-agent') || 'Unknown'
 
+    // 1. Resolve UID and Supplier from slug
     let incomingUid: string | null = null
     let supplierToken: string | null = null
 
@@ -92,166 +30,83 @@ export async function GET(
         return NextResponse.redirect(new URL('/paused?title=INVALID_LINK', request.url))
     }
 
-    const insforge = await createAdminClient()
-    if (!insforge) {
-        return NextResponse.redirect(new URL('/paused?title=SYSTEM_OFFLINE', request.url))
-    }
+    const { database: db } = await getUnifiedDb()
+    if (!db) return NextResponse.redirect(new URL('/paused?title=SYSTEM_OFFLINE', request.url))
 
     try {
-        let { data: project } = await insforge.database
+        // 2. Resolve Project BY CODE
+        let { data: project } = await db
             .from('projects')
-            .select('*')
+            .select('id')
             .eq('project_code', code)
             .maybeSingle()
 
-        // DYNAMIC GATEWAY FALLBACK
-        const forceStatus = request.nextUrl.searchParams.get('status')
-        const forceUrl = request.nextUrl.searchParams.get('url')
+        // Fallback for dynamic project if explicit code not found
+        if (!project) {
+            const { data: dynamicP } = await db.from('projects').select('id').eq('project_code', 'DYNAMIC_ENTRY').maybeSingle()
+            if (dynamicP) project = dynamicP
+        }
 
         if (!project) {
-            const { data: dynamicProject } = await insforge.database
-                .from('projects')
-                .select('*')
-                .eq('project_code', 'DYNAMIC_ENTRY')
-                .maybeSingle()
-            
-            if (dynamicProject) {
-                project = dynamicProject
-                console.log(`[DynamicRouter] Using System Fallback for code: ${code}`)
+            await auditService.log({
+                event_type: 'entry_denied',
+                payload: { reason: 'project_not_found', project_code: code, uid: incomingUid },
+                ip, user_agent: userAgent
+            })
+            return NextResponse.redirect(new URL('/paused?title=PROJECT_NOT_FOUND', request.url))
+        }
+
+        // 3. Fetch GeoIP data (Production-grade service)
+        let geoData = null
+        try {
+            const { getCountryFromIp } = await import('@/lib/geoip-service')
+            const geoCountry = await getCountryFromIp(request, ip)
+            geoData = { country: geoCountry }
+        } catch (e) {
+            console.error('[GeoIP] Lookup failed:', e)
+        }
+
+        // 4. Process Entry through Unified Tracking Service
+        const ctx: EntryContext = {
+            projectId: project.id,
+            rid: incomingUid,
+            supplierToken: supplierToken || undefined,
+            userAgent,
+            ip,
+            geoData,
+            queryParams: Object.fromEntries(request.nextUrl.searchParams.entries())
+        }
+
+        const result = await TrackingService.processEntry(ctx)
+
+        if (result.success && result.redirectUrl) {
+            const response = NextResponse.redirect(new URL(result.redirectUrl))
+            // Set tracking cookies for persistence
+            const cookieOptions = { maxAge: 86400, path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' as const }
+            response.cookies.set('last_uid', incomingUid, cookieOptions)
+            if (result.responseData?.oi_session) {
+                response.cookies.set('last_sid', result.responseData.oi_session, cookieOptions)
             }
+            response.cookies.set('last_pid', code, cookieOptions)
+            return response
         }
 
-        if (!project) return NextResponse.redirect(new URL('/paused?title=PROJECT_NOT_FOUND', request.url))
-        
-        // URL OVERRIDE (For on-the-fly survey launching)
-        if (forceUrl) {
-            project.base_url = forceUrl
-            console.log(`[DynamicRouter] Overriding base_url with: ${forceUrl}`)
+        // 5. Handle Specialized Error Redirects
+        const errorMap: Record<string, string> = {
+          PROJECT_PAUSED: `/paused?pid=${code}&title=PROJECT_PAUSED`,
+          THROTTLED: '/paused?title=THROTTLED&desc=Too many requests. Please wait.',
+          DUPLICATE: '/duplicate-string',
+          GEO_MISMATCH: '/paused?title=GEO_MISMATCH',
+          COUNTRY_UNAVAILABLE: '/paused?title=COUNTRY+UNAVAILABLE',
+          QUOTA_FULL: '/quotafull',
+          SERVER_ERROR: '/paused?title=SERVER_ERROR'
         }
 
-        if (project.status === 'paused' && !forceUrl) return NextResponse.redirect(new URL(`/paused?pid=${code}&title=PROJECT_PAUSED`, request.url))
+        const redirectPath = errorMap[result.errorType || 'SERVER_ERROR'] || '/paused?title=ENTRY_DENIED'
+        return NextResponse.redirect(new URL(redirectPath, request.url))
 
-        let supplierName: string | null = null
-        if (supplierToken) {
-            const { data: supplierRow } = await insforge.database
-                .from('suppliers')
-                .select('name')
-                .eq('supplier_token', supplierToken)
-                .eq('status', 'active')
-                .maybeSingle()
-            if (supplierRow) supplierName = supplierRow.name
-        }
-
-        const sessionToken = crypto.randomUUID()
-        const oiPrefix: string = (project as any).oi_prefix || 'oi_'
-        let clientUidToSent = incomingUid  // default: pass supplier UID as-is
-
-        // PID generation (custom RID)
-        if (project.pid_prefix) {
-            const { data: updatedProject, error: updateError } = await insforge.database
-                .from('projects')
-                .update({ pid_counter: (project.pid_counter || 0) + 1 })
-                .eq('id', project.id)
-                .select('pid_counter')
-                .single()
-
-            if (!updateError && updatedProject) {
-                const countryParam = request.nextUrl.searchParams.get('country') || request.nextUrl.searchParams.get('c')
-                const countryPart = countryParam ? countryParam.toUpperCase() : ''
-                const generatedPid = `${project.pid_prefix}${countryPart}${String(updatedProject.pid_counter).padStart(project.pid_padding || 2, '0')}`
-                if (project.force_pid_as_uid) clientUidToSent = generatedPid
-            }
-        }
-
-        if (project.target_uid) clientUidToSent = project.target_uid
-
-        const hashIdentifier = crypto.createHash('sha256')
-            .update(`${incomingUid}-${Date.now()}`).digest('hex').substring(0, 8)
-
-        // Parse uid_params from DB
-        let uidParams: UidParamConfig[] | null = null
-        if ((project as any).uid_params) {
-            try {
-                const raw = (project as any).uid_params
-                uidParams = typeof raw === 'string' ? JSON.parse(raw) : raw
-            } catch {
-                console.warn('[UnifiedRouter] uid_params parse failed, using legacy mode')
-            }
-        }
-
-        // DB insert — supplier_uid is ALWAYS the original incomingUid
-        const { error: insertError } = await insforge.database
-            .from('responses')
-            .insert([{
-                project_id: project.id,
-                project_code: code,
-                project_name: project.project_name || code,
-                supplier_uid: incomingUid,        // original supplier UID — never overwrite
-                client_uid_sent: clientUidToSent, // custom RID sent to client
-                uid: incomingUid,
-                user_uid: incomingUid,
-                hash_identifier: hashIdentifier,
-                session_token: sessionToken,
-                oi_session: sessionToken,
-                clickid: sessionToken,
-                hash: sessionToken,
-                supplier_token: supplierToken,
-                supplier_name: supplierName,
-                supplier: supplierToken,
-                status: 'in_progress',
-                ip: ip,
-                user_agent: request.headers.get('user-agent') || 'Unknown',
-                last_landing_page: 'entry',
-                start_time: new Date().toISOString(),
-                created_at: new Date().toISOString()
-            }])
-
-        if (insertError) {
-            console.error('[UnifiedRouter] DB Insert failed:', insertError)
-            return NextResponse.redirect(new URL('/paused?title=TRACKING_ERROR', request.url))
-        }
-
-        const cookieStore = await cookies()
-        const cookieOptions = { maxAge: 60 * 60 * 4, path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' as const }
-        cookieStore.set('last_sid', sessionToken, cookieOptions)
-        cookieStore.set('last_uid', incomingUid, cookieOptions)
-        cookieStore.set('last_pid', code, cookieOptions)
-
-        // Handle Direct Landing (Force Status)
-        if (forceStatus) {
-            const landingPath = forceStatus === 'complete' ? '/complete' : '/terminate'
-            const landingUrl = new URL(landingPath, request.url)
-            landingUrl.searchParams.set('pid', code) // Use original code as pid
-            landingUrl.searchParams.set('uid', incomingUid)
-            
-            // Log the auto-entry
-            await insforge.database.from('responses').update({
-                status: forceStatus,
-                updated_at: new Date().toISOString()
-            }).eq('clickid', sessionToken)
-
-            console.log(`[DynamicRouter] Auto-Landing for code: ${code}, status: ${forceStatus}`)
-            return NextResponse.redirect(landingUrl)
-        }
-
-        // Original logic: Redirect to survey
-        const builtUrl = buildSurveyUrl(
-            project.base_url,
-            sessionToken,
-            clientUidToSent,
-            incomingUid,
-            hashIdentifier,
-            oiPrefix,
-            project.client_pid_param,
-            project.client_uid_param,
-            uidParams
-        )
-
-        console.log(`[UnifiedRouter] supplier_uid=${incomingUid} | client_rid=${clientUidToSent} | url=${builtUrl}`)
-        return NextResponse.redirect(new URL(builtUrl))
-
-    } catch (e) {
-        console.error('[UnifiedRouter] Exception:', e)
-        return NextResponse.redirect(new URL('/paused?title=SYSTEM_ERROR', request.url))
+    } catch (error: any) {
+        console.error('[Routing] Unified Error:', error)
+        return NextResponse.redirect(new URL('/paused?title=SERVER_ERROR', request.url))
     }
 }

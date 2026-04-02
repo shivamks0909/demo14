@@ -1,26 +1,13 @@
 Environment Configuration Report
-Generated: 2026-03-31
-
-Status: ✓ PASSED (all required variables present and valid)
+Generated: 2026-03-31 03:11:25 UTC
 
 GEOIP_PROVIDER: auto
 MAXMIND_DB_PATH: ./data/GeoLite2-Country.mmdb
-IPINFO_TOKEN: your-ipinfo-token-here (placeholder - replace with actual token for production)
-ADMIN_MASTER_KEY: Set (length: 44)
+IPINFO_TOKEN: your-ipinfo-token-here
+ADMIN_MASTER_KEY: XU385X8C... (44 chars total)
 NODE_ENV: development
 
-Notes:
-- GEOIP_PROVIDER set to 'auto' will attempt both MaxMind and ipinfo
-- IPINFO_TOKEN is currently a placeholder - must be replaced with actual token for production
-- MAXMIND_DB_PATH points to database file that needs to be downloaded from MaxMind
-- ADMIN_MASTER_KEY is a secure random base64 string (valid)
-- For production deployment, set NODE_ENV=production
+Issues Found:
+  - IPINFO_TOKEN is using placeholder value
 
-Validation Actions Taken:
-1. Added missing GEOIP_PROVIDER=auto
-2. Added missing MAXMIND_DB_PATH=./data/GeoLite2-Country.mmdb
-3. Added missing IPINFO_TOKEN placeholder
-4. Generated and added ADMIN_MASTER_KEY (44 chars)
-5. Set NODE_ENV=development
-
-All required variables are now present in .env.local.
+Summary: 1 issue(s) found

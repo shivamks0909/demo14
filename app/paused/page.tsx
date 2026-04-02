@@ -1,5 +1,5 @@
 import React from "react";
-import { QuirkyOutcomeView } from "@/components/public/QuirkyOutcomeView";
+import { WavyOutcomeView } from "@/components/public/WavyOutcomeView";
 export default function PausedPage() {
-  return <QuirkyOutcomeView status="Paused" statusKeyword="paused" />;
+  return <WavyOutcomeView status="Paused" statusKeyword="paused" />;
 }

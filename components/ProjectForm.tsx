@@ -4,7 +4,125 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createProjectAction } from '@/app/actions'
 import { Client } from '@/lib/types'
-import { ChevronDown, Plus, Trash2, Link as LinkIcon, AlertCircle, Save } from 'lucide-react'
+import { ChevronDown, Plus, Trash2, Link as LinkIcon, AlertCircle, Save, Zap, MousePointerClick } from 'lucide-react'
+
+// ── Smart URL Parameter Mapper ────────────────────────────────────────────
+function SmartUrlMapper({ onApply }: { onApply: (baseUrl: string, uidParam: string, pidParam: string | null) => void }) {
+    const [rawUrl, setRawUrl] = useState('')
+    const [parsed, setParsed] = useState<{ key: string; value: string }[]>([])
+    const [selectedParam, setSelectedParam] = useState<string | null>(null)
+    const [parseError, setParseError] = useState('')
+
+    const parseUrl = (url: string) => {
+        setParseError('')
+        setSelectedParam(null)
+        if (!url.trim()) { setParsed([]); return }
+        try {
+            const u = new URL(url)
+            const params = Array.from(u.searchParams.entries()).map(([key, value]) => ({ key, value }))
+            if (params.length === 0) setParseError('No query parameters found in this URL.')
+            setParsed(params)
+        } catch {
+            setParseError('Invalid URL — please include https:// and full address.')
+            setParsed([])
+        }
+    }
+
+    const applyMapping = () => {
+        if (!selectedParam || !rawUrl) return
+        try {
+            const u = new URL(rawUrl)
+            // Replace the selected param's value with the [UID] placeholder for cleanliness
+            u.searchParams.set(selectedParam, '[UID]')
+
+            // Auto-detect PID parameter if present in the URL
+            const pidPatterns = ['pid', 'id', 'rid', 'gid', 'sid', 'vid', 'cid']
+            const detectedPidParam = parsed.find(p =>
+                pidPatterns.includes(p.key.toLowerCase()) && p.key !== selectedParam
+            )
+
+            onApply(u.toString(), selectedParam, detectedPidParam?.key || null)
+        } catch {}
+    }
+
+    return (
+        <div className="space-y-4 p-5 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl">
+            <div className="flex items-center gap-2">
+                <div className="w-7 h-7 bg-amber-500 rounded-lg flex items-center justify-center">
+                    <Zap className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                    <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Smart URL Mapper</p>
+                    <p className="text-[9px] text-amber-600">Paste client URL → click which param gets your Respondent ID</p>
+                </div>
+            </div>
+
+            <textarea
+                rows={2}
+                placeholder={`Paste client survey URL here, e.g.\nhttps://insights.teamvizory.com/Navigate?tid=96PbHvAb&tzid=uid`}
+                value={rawUrl}
+                onChange={(e) => { setRawUrl(e.target.value); parseUrl(e.target.value) }}
+                className="w-full px-4 py-3 bg-white border border-amber-200 rounded-xl text-xs font-mono text-slate-700 placeholder:text-slate-300 focus:ring-2 focus:ring-amber-300 outline-none resize-none"
+            />
+
+            {parseError && (
+                <p className="text-[10px] text-rose-500 font-semibold">{parseError}</p>
+            )}
+
+            {parsed.length > 0 && (
+                <div className="space-y-2">
+                    <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-1">
+                        <MousePointerClick className="w-3 h-3" />
+                        Click on the value that should become your Respondent UID:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {parsed.map(({ key, value }) => (
+                            <button
+                                key={key}
+                                type="button"
+                                onClick={() => setSelectedParam(key)}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono border-2 transition-all ${
+                                    selectedParam === key
+                                        ? 'bg-emerald-500 border-emerald-600 text-white shadow-md shadow-emerald-200'
+                                        : 'bg-white border-amber-200 text-slate-600 hover:border-amber-400 hover:bg-amber-50'
+                                }`}
+                            >
+                                <span className="text-[8px] font-bold opacity-60 uppercase">{key}</span>
+                                <span className="text-[9px]">=</span>
+                                <span className="font-bold">{value || <em className="opacity-40">empty</em>}</span>
+                                {selectedParam === key && <span className="ml-1 text-[8px] bg-white/30 rounded px-1">✓ UID</span>}
+                            </button>
+                        ))}
+                    </div>
+
+                    {selectedParam && (
+                        <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                            <div>
+                                <p className="text-[9px] font-black text-emerald-700 uppercase tracking-wider">Mapping Preview</p>
+                                <code className="text-[10px] text-emerald-800 font-mono">
+                                    <span className="opacity-50">...?</span>
+                                    <span className="font-black">{selectedParam}</span>
+                                    <span className="text-emerald-500 font-black">=&#123;RESPONDENT_UID&#125;</span>
+                                    {parsed.filter(p => p.key !== selectedParam).map(p => (
+                                        <span key={p.key} className="opacity-40">&{p.key}={p.value}</span>
+                                    ))}
+                                </code>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={applyMapping}
+                                className="ml-4 flex-shrink-0 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider rounded-lg transition-colors"
+                            >
+                                Apply →
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function ProjectForm({ clients }: { clients: Client[] }) {
     const [formData, setFormData] = useState({
@@ -276,9 +394,27 @@ export default function ProjectForm({ clients }: { clients: Client[] }) {
 
                         {/* 3. Baseline & Advanced */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-2">
+                            <div className="space-y-3 md:col-span-2">
+                                {/* Smart URL Mapper */}
+                                {!formData.is_multi_country && (
+                                    <SmartUrlMapper
+                                        onApply={(baseUrl, uidParam, pidParam) => {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                base_url: baseUrl,
+                                                client_uid_param: uidParam,
+                                                client_pid_param: pidParam || prev.client_pid_param
+                                            }))
+                                        }}
+                                    />
+                                )}
                                 <label className="block text-[11px] font-bold text-slate-500 tracking-tight ml-1 uppercase opacity-70">
                                     {formData.is_multi_country ? 'Default Survey URL (Disabled)' : 'Base Survey URL'}
+                                    {formData.client_uid_param && (
+                                        <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[9px] normal-case font-bold">
+                                            UID → <code>{formData.client_uid_param}</code> param
+                                        </span>
+                                    )}
                                 </label>
                                 <input
                                     type="url"
@@ -290,6 +426,7 @@ export default function ProjectForm({ clients }: { clients: Client[] }) {
                                     disabled={formData.is_multi_country}
                                 />
                             </div>
+                            <div className="hidden"> {/* spacer - keeps grid alignment */}</div>
 
                             <div className="space-y-2">
                                 <label className="block text-[11px] font-bold text-slate-500 tracking-tight ml-1 uppercase opacity-70">Global Target (Quota)</label>

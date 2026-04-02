@@ -1,61 +1,47 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/insforge-server";
+import { NextRequest, NextResponse } from 'next/server';
+import { dashboardService } from '@/lib/dashboardService';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-    const db = await createAdminClient();
-    if (!db) return NextResponse.json({ error: "InsForge not configured" }, { status: 500 });
-
-    const { data, error } = await db.database
-        .from('clients')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json(data);
+  try {
+    const clients = await dashboardService.getClients();
+    return NextResponse.json({ success: true, data: clients || [] });
+  } catch (error: any) {
+    console.error('[Admin Clients GET] Error:', error);
+    return NextResponse.json({ success: false, error: error?.message || 'Failed to fetch clients' }, { status: 500 });
+  }
 }
 
-export async function POST(req: NextRequest) {
-    const db = await createAdminClient();
-    if (!db) return NextResponse.json({ error: "InsForge not configured" }, { status: 500 });
-
-    try {
-        const body = await req.json();
-        const { data, error } = await db.database
-            .from('clients')
-            .insert([body])
-            .select()
-            .single();
-
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-        return NextResponse.json(data);
-    } catch (err) {
-        return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    if (!body.name) {
+      return NextResponse.json({ success: false, error: 'Client name is required' }, { status: 400 });
     }
+
+    const { data, error } = await dashboardService.createClient(body.name);
+    
+    if (error) throw error;
+    return NextResponse.json({ success: true, data });
+  } catch (error: any) {
+    console.error('[Admin Clients POST] Error:', error);
+    return NextResponse.json({ success: false, error: error?.message || 'Failed to create client' }, { status: 500 });
+  }
 }
 
-export async function DELETE(req: NextRequest) {
-    const db = await createAdminClient();
-    if (!db) return NextResponse.json({ error: "InsForge not configured" }, { status: 500 });
-
-    try {
-        const { searchParams } = new URL(req.url);
-        const id = searchParams.get('id');
-
-        if (!id) {
-            return NextResponse.json({ error: "Missing client ID" }, { status: 400 });
-        }
-
-        const { error } = await db.database
-            .from('clients')
-            .delete()
-            .eq('id', id);
-
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-        return NextResponse.json({ success: true });
-    } catch (err) {
-        return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-    }
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ success: false, error: 'Missing id' }, { status: 400 });
+    
+    const { error } = await dashboardService.deleteClient(id);
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('[Admin Clients DELETE] Error:', error);
+    return NextResponse.json({ success: false, error: error?.message || 'Failed to delete client' }, { status: 500 });
+  }
 }

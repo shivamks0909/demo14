@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/insforge-server'
+import { getUnifiedDb } from '@/lib/unified-db'
 import { redirect } from 'next/navigation'
 import BrandLogo from '@/components/BrandLogo'
 
@@ -17,28 +17,24 @@ export default async function PreScreenerPage({ searchParams }: PreScreenerProps
         redirect('/paused')
     }
 
-    const db = await createAdminClient()
-    if (!db) redirect('/paused')
+    const { database: db } = await getUnifiedDb()
 
     // 1. Fetch response and associated project
-    const query = db.database
-        .from('responses')
-        .select('*, projects(*)')
-
+    let responseData: any = null
     if (session_token) {
-        query.eq('session_token', session_token)
+        const { data } = await db.from('responses').select('*').eq('session_token', session_token).maybeSingle()
+        responseData = data
     } else {
-        query.eq('id', response_id)
+        const { data } = await db.from('responses').select('*').eq('id', response_id!).maybeSingle()
+        responseData = data
     }
 
-    const { data: response, error } = await query.maybeSingle()
+    if (!responseData) redirect('/paused')
 
-    if (error || !response || !response.projects) {
-        console.error('Pre-screener error:', error)
-        redirect('/paused')
-    }
+    // Fetch project separately (SQLite local cannot do joins)
+    const { data: project } = await db.from('projects').select('*').eq('id', responseData.project_id).maybeSingle()
 
-    const project = response.projects
+    if (!project) redirect('/paused')
 
     // 2. If external pre-screener URL exists, redirect
     if (project.prescreener_url) {
@@ -56,42 +52,28 @@ export default async function PreScreenerPage({ searchParams }: PreScreenerProps
         const res_id = formData.get('response_id') as string
         const token = formData.get('session_token') as string
 
-        const db = await createAdminClient()
-        if (!db) redirect('/paused')
+        const { database: db2 } = await getUnifiedDb()
 
-        // Simple Qualification Logic: Age 18+ and Country matches project country (if not Global)
         const isQualified = age >= 18 && (project.country === 'Global' || project.country === country)
 
         if (isQualified) {
-            // Success: Redirect to client survey
             let finalUrl = project.base_url
-            const userToken = response.supplier_token || response.uid || ''
-
+            const userToken = responseData.supplier_token || responseData.uid || ''
             if (userToken) {
                 finalUrl = finalUrl.replace('[UID]', encodeURIComponent(userToken))
                 finalUrl = finalUrl.replace('[identifier]', encodeURIComponent(userToken))
-            } else {
-                finalUrl = finalUrl.replace('[UID]', '')
-                finalUrl = finalUrl.replace('[identifier]', '')
             }
-
-            // Append session info just like /track route
             const finalUrlObj = new URL(finalUrl)
             finalUrlObj.searchParams.set('pid', project.project_code)
             if (token) finalUrlObj.searchParams.set('session_token', token)
-
             redirect(finalUrlObj.toString())
         } else {
-            // Fail: Update status and redirect to terminate
-            const updateQuery = db.database.from('responses').update({ status: 'terminate' })
             if (token) {
-                updateQuery.eq('session_token', token)
+                await db2.from('responses').update({ status: 'terminate' }).eq('session_token', token)
             } else {
-                updateQuery.eq('id', res_id)
+                await db2.from('responses').update({ status: 'terminate' }).eq('id', res_id)
             }
-            await updateQuery
-
-            const terminateUrl = `/terminate?pid=${project.project_code}&uid=${response.uid}`
+            const terminateUrl = `/terminate?pid=${project.project_code}&uid=${responseData.uid}`
             redirect(token ? `${terminateUrl}&session_token=${token}` : terminateUrl)
         }
     }
@@ -99,7 +81,6 @@ export default async function PreScreenerPage({ searchParams }: PreScreenerProps
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
             <div className="max-w-md w-full flex flex-col items-center">
-                {/* Brand Logo */}
                 <div className="mb-8 hover:scale-105 transition-transform duration-300">
                     <a href="http://opinioninsights.in/" target="_blank" rel="noopener noreferrer">
                         <BrandLogo
@@ -113,7 +94,7 @@ export default async function PreScreenerPage({ searchParams }: PreScreenerProps
                     <div className="text-center mb-8">
                         <h1 className="text-2xl font-bold text-slate-900 tracking-tight uppercase">Quick Verification</h1>
                         <p className="text-slate-500 mt-2 text-sm leading-relaxed">
-                            Please provide your details to continue to the survey. This helps us ensure you're a good fit for this research.
+                            Please provide your details to continue to the survey.
                         </p>
                     </div>
 
@@ -124,11 +105,7 @@ export default async function PreScreenerPage({ searchParams }: PreScreenerProps
                         <div>
                             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">How old are you?</label>
                             <input
-                                type="number"
-                                name="age"
-                                required
-                                min="1"
-                                max="120"
+                                type="number" name="age" required min="1" max="120"
                                 placeholder="Enter your age"
                                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-medium"
                             />
@@ -136,11 +113,7 @@ export default async function PreScreenerPage({ searchParams }: PreScreenerProps
 
                         <div>
                             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Your Country</label>
-                            <select
-                                name="country"
-                                required
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-medium appearance-none"
-                            >
+                            <select name="country" required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-medium appearance-none">
                                 <option value="">Select your country...</option>
                                 <option value="US">United States</option>
                                 <option value="UK">United Kingdom</option>
@@ -151,17 +124,13 @@ export default async function PreScreenerPage({ searchParams }: PreScreenerProps
                             </select>
                         </div>
 
-                        <button
-                            type="submit"
-                            className="w-full py-4 bg-indigo-600 text-white rounded-2xl text-sm font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all font-inter mt-2"
-                        >
+                        <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-2xl text-sm font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all mt-2">
                             Continue to Survey
                         </button>
                     </form>
 
                     <p className="text-center text-[10px] text-gray-400 mt-8 font-medium">
                         By continuing, you agree to our terms of service and privacy policy.
-                        No sensitive personal data is stored.
                     </p>
                 </div>
             </div>

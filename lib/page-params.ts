@@ -19,6 +19,8 @@ export interface SessionParams {
   start: string;
   end: string;
   loi: string;
+  title?: string;
+  desc?: string;
 }
 
 export function formatTimestamp(unix: string | null): string {
@@ -77,6 +79,8 @@ export function getSessionParams(search: string): SessionParams {
     rawStart: startRaw, rawEnd: endRaw, start: formatTimestamp(startRaw),
     end: formatTimestamp(endRaw), loi: loiMinutes, timestamp: currentTime,
     session: p.get("session") || p.get("oi_session") || "-",
+    title: p.get("title") || undefined,
+    desc: p.get("desc") || undefined,
   };
 }
 

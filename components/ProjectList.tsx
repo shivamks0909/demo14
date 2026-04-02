@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Project } from '@/lib/types'
 import { updateProjectStatusAction, updateCountryActiveAction } from '@/app/actions'
 import DeleteProjectButton from './DeleteProjectButton'
@@ -89,8 +90,30 @@ export default function ProjectList({ projects: initialProjects }: ProjectListPr
         )
     }
 
+    const containerVariants = {
+      hidden: { opacity: 0 },
+      visible: {
+        opacity: 1,
+        transition: { staggerChildren: 0.1 }
+      }
+    }
+
+    const itemVariants: any = {
+      hidden: { opacity: 0, y: 20 },
+      visible: {
+        opacity: 1,
+        y: 0,
+        transition: { duration: 0.4, ease: "easeOut" }
+      }
+    }
+
     return (
-        <div className="space-y-4">
+        <motion.div
+          className="space-y-4"
+          initial="hidden"
+          animate="visible"
+          variants={containerVariants}
+        >
             <div className="hidden lg:grid grid-cols-12 gap-4 px-8 py-3 bg-slate-100/50 rounded-2xl mb-4">
                 <div className="col-span-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Project / Code</div>
                 <div className="col-span-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Velocity</div>
@@ -102,7 +125,13 @@ export default function ProjectList({ projects: initialProjects }: ProjectListPr
             </div>
 
             {projects.map((project) => (
-                <div key={project.id} className="bg-white/80 backdrop-blur-md border border-white/40 shadow-xl shadow-slate-200/40 rounded-[2rem] overflow-hidden transition-all hover:shadow-2xl hover:border-indigo-100 group">
+                <motion.div
+                    key={project.id}
+                    className="bg-white/80 backdrop-blur-md border border-white/40 shadow-xl shadow-slate-200/40 rounded-[2rem] overflow-hidden transition-all hover:shadow-2xl hover:border-indigo-100 group"
+                    variants={itemVariants}
+                    whileHover={{ scale: 1.01 }}
+                    layout
+                >
                     <div className="grid grid-cols-1 lg:grid-cols-12 items-center gap-4 p-6 lg:p-8">
                         {/* Project / Code */}
                         <div className="col-span-4 flex items-center space-x-6">
@@ -264,8 +293,8 @@ export default function ProjectList({ projects: initialProjects }: ProjectListPr
                             </div>
                         </div>
                     )}
-                </div>
+                </motion.div>
             ))}
-        </div>
+        </motion.div>
     )
 }

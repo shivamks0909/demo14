@@ -1,22 +1,17 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { createAdminClient } from '@/lib/insforge-server'
-import bcrypt from 'bcrypt'
+import { getUnifiedDb } from '@/lib/unified-db'
+import bcrypt from 'bcryptjs'
 import { unstable_noStore as noStore } from 'next/cache'
 
-const DEV_BYPASS_EMAIL = 'dev@localhost'
-const DEV_BYPASS_PASSWORD = 'dev'
-
-// Rate limiting configuration
-const MAX_LOGIN_ATTEMPTS = 5
-const LOCKOUT_TIME = 15 * 60 * 1000 // 15 minutes
-
-// In-memory rate limiting (use Redis in production)
+// Rate limiting (in-memory; use Redis in production)
 const loginAttempts = new Map<string, { attempts: number; lastAttempt: number }>()
+const MAX_ATTEMPTS = 5
+const LOCKOUT_MS = 15 * 60 * 1000
 
 function setAdminSessionCookie(cookieStore: Awaited<ReturnType<typeof cookies>>) {
-    cookieStore.set('admin_session', 'true', {
+    cookieStore.set('admin_session', 'authenticated_admin_session', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
@@ -25,124 +20,91 @@ function setAdminSessionCookie(cookieStore: Awaited<ReturnType<typeof cookies>>)
     })
 }
 
-// Helper function to safely compare passwords (prevents timing attacks)
-function safeCompare(a: string, b: string): boolean {
-    if (a.length !== b.length) {
-        return false
-    }
-    let result = 0
-    for (let i = 0; i < a.length; i++) {
-        result |= a.charCodeAt(i) ^ b.charCodeAt(i)
-    }
-    return result === 0
-}
-
 export async function loginAction(formData: FormData) {
-    // Prevent caching of login page
     noStore()
 
-    const email = (formData.get('email') as string)?.trim() ?? ''
+    const email = (formData.get('email') as string)?.trim().toLowerCase() ?? ''
     const password = formData.get('password') as string
 
-    // Validate input
     if (!email || !password) {
         return { error: 'Email and password are required' }
     }
 
-    // Input sanitization
-    if (email.length > 255 || password.length > 100) {
-        return { error: 'Invalid input length' }
-    }
-
     // Rate limiting
-    const clientIP = 'unknown' // In a real implementation, get actual IP
-    const attemptKey = `${clientIP}:${email}`
-    const attemptData = loginAttempts.get(attemptKey)
-
     const now = Date.now()
-    if (attemptData && (now - attemptData.lastAttempt) < LOCKOUT_TIME) {
-        if (attemptData.attempts >= MAX_LOGIN_ATTEMPTS) {
-            return { error: 'Too many failed login attempts. Please try again later.' }
-        }
+    const key = email
+    const attempt = loginAttempts.get(key)
+    if (attempt && (now - attempt.lastAttempt) < LOCKOUT_MS && attempt.attempts >= MAX_ATTEMPTS) {
+        return { error: 'Too many failed login attempts. Please try again in 15 minutes.' }
     }
 
-    // Dev bypass when InsForge is not configured (local development only)
-    if (process.env.NODE_ENV === 'development' && !process.env.NEXT_PUBLIC_INSFORGE_URL) {
-        if (email === DEV_BYPASS_EMAIL && password === DEV_BYPASS_PASSWORD) {
-            const cookieStore = await cookies()
-            setAdminSessionCookie(cookieStore)
-            return { success: true }
-        }
-    }
-
-    const db = await createAdminClient()
-    if (!db) {
-        return {
-            error: 'Authentication service temporarily unavailable. Please try again later.'
-        }
+    function recordFailure() {
+        const a = loginAttempts.get(key)
+        loginAttempts.set(key, { attempts: (a?.attempts ?? 0) + 1, lastAttempt: now })
     }
 
     try {
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-        if (!emailRegex.test(email)) {
-            return { error: 'Invalid email format' }
+        console.log('[Login action] Attempting to connect to unified DB...')
+        const { database: db, source } = await getUnifiedDb()
+        console.log('[Login action] Connected to unified DB. Source:', source)
+
+        // Try 'admins' table first (local SQLite), then 'users' (InsForge/Postgres)
+        let user: any = null
+        for (const table of ['admins', 'users']) {
+            try {
+                console.log(`[Login action] Querying table ${table}...`)
+                const { data, error } = await db.from(table).select('*').eq('email', email).maybeSingle()
+                if (error) console.log(`[Login action] Query error on ${table}:`, error.message)
+                if (data) { 
+                    user = data
+                    console.log(`[Login action] User found in ${table}`)
+                    break 
+                }
+            } catch (err: any) { 
+                console.log(`[Login action] Query thrown error on ${table}:`, err.message)
+            }
         }
 
-        console.log(`[Login] Attempt for email: ${email}`);
-
-        const { data: admin, error: dbError } = await db.database
-            .from('admins')
-            .select('password_hash, id')
-            .eq('email', email)
-            .single()
-
-        if (dbError || !admin) {
-            console.error(`[Login] User not found or DB error: ${dbError?.message || 'Not found'}`);
-            // Update rate limiting even on failed attempts
-            if (attemptData) {
-                attemptData.attempts++
-                attemptData.lastAttempt = now
-                loginAttempts.set(attemptKey, attemptData)
-            } else {
-                loginAttempts.set(attemptKey, { attempts: 1, lastAttempt: now })
-            }
+        if (!user) {
+            console.log('[Login action] No user found in any tables')
+            recordFailure()
             return { error: 'Invalid credentials' }
         }
 
-        console.log(`[Login] User found, comparing password...`);
-
-        // Use safe comparison to prevent timing attacks
-        const passwordMatch = await bcrypt.compare(password, admin.password_hash)
-        console.log(`[Login] Password match result: ${passwordMatch}`);
-
-        if (passwordMatch) {
-            // Reset rate limiting on successful login
-            loginAttempts.delete(attemptKey)
-
-            const cookieStore = await cookies()
-            setAdminSessionCookie(cookieStore)
-            console.log(`[Login] Success for ${email}`);
-            return { success: true }
+        // Password comparison — supports both bcrypt hash and plain text (legacy)
+        const storedPwd = user.password_hash || user.password || ''
+        let match = false
+        if (storedPwd.startsWith('$2b$') || storedPwd.startsWith('$2a$')) {
+            match = await bcrypt.compare(password, storedPwd)
         } else {
-            // Update rate limiting on failed attempt
-            if (attemptData) {
-                attemptData.attempts++
-                attemptData.lastAttempt = now
-                loginAttempts.set(attemptKey, attemptData)
-            } else {
-                loginAttempts.set(attemptKey, { attempts: 1, lastAttempt: now })
-            }
+            match = storedPwd === password
+        }
+
+        if (!match) {
+            recordFailure()
             return { error: 'Invalid credentials' }
         }
-    } catch (err) {
-        console.error('Login error:', err)
-        return { error: 'Authentication service unavailable' }
+
+        // Success
+        loginAttempts.delete(key)
+        const cookieStore = await cookies()
+        setAdminSessionCookie(cookieStore)
+        return { success: true }
+
+    } catch (err: any) {
+        console.error('[Login] Error:', err?.message)
+        return { error: 'Authentication service unavailable. Please try again.' }
     }
 }
 
 export async function logoutAction() {
     const cookieStore = await cookies()
-    cookieStore.delete('admin_session')
+    cookieStore.delete({
+        name: 'admin_session',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/'
+    })
     return { success: true }
 }

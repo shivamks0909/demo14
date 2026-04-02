@@ -1,0 +1,6 @@
+import { NextResponse, type NextRequest } from 'next/server'
+
+// Middleware disabled - returning early to avoid Vercel runtime issues
+export async function middleware(request: NextRequest) {
+    return NextResponse.next()
+}

@@ -77,3 +77,39 @@ export type Project = {
     // Multi UID/RID/TOID param mapping
     uid_params?: { param: string; value: string }[] | null
 }
+
+export type Response = {
+    id: string
+    project_id: string
+    project_code: string
+    project_name: string
+    uid: string
+    user_uid?: string
+    supplier_uid?: string
+    client_uid_sent?: string
+    hash_identifier?: string
+    session_token?: string
+    oi_session?: string
+    clickid: string
+    hash?: string
+    supplier_token?: string
+    supplier_name?: string
+    supplier?: string
+    status: 'in_progress' | 'complete' | 'terminate' | 'quota_full' | 'security_terminate' | 'duplicate_ip' | 'duplicate_string'
+    ip?: string
+    user_agent?: string
+    device_type?: string
+    last_landing_page?: string
+    start_time?: string
+    client_pid?: string
+    created_at: string
+    updated_at?: string
+    transaction_id?: string
+    is_manual?: boolean
+    source?: string
+    country_code?: string
+    duration_seconds?: number
+    completed_at?: string
+    s2s_token?: string
+    is_fake_suspected?: boolean
+}

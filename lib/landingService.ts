@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { createAdminClient } from "./insforge-server";
 import { getClientIp } from "./getClientIp";
+import { Response } from "./types";
 
-export async function getLandingDataByClickId(clickid: string) {
+export async function getLandingDataByClickId(clickid: string): Promise<Response | null> {
     const db = await createAdminClient()
     if (!db) return null
 
@@ -12,7 +13,7 @@ export async function getLandingDataByClickId(clickid: string) {
         .eq('clickid', clickid)
         .maybeSingle()
 
-    return response
+    return response as Response | null
 }
 
 /**

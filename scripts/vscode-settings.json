@@ -1,0 +1,28 @@
+{
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.profiles.windows": {
+    "PowerShell": {
+      "source": "PowerShell",
+      "icon": "terminal-powershell",
+      "args": ["-NoLogo", "-ExecutionPolicy", "Bypass"]
+    }
+  },
+  "terminal.integrated.confirmOnExit": "off",
+  "terminal.integrated.enablePersistentSessions": true,
+  "terminal.integrated.rightClickBehavior": "paste",
+  "terminal.integrated.shellIntegration.enabled": false,
+  "task.autoDetect": "off",
+  "task.runInBackground": true,
+  "task.problemMatchers.neverPrompt": true,
+  "extensions.ignoreRecommendations": true,
+  "extensions.autoUpdate": true,
+  "code-runner.runInTerminal": true,
+  "code-runner.ignoreSelection": true,
+  "window.openFoldersInNewWindow": "off",
+  "window.restoreWindows": "all",
+  "update.mode": "auto",
+  "security.workspace.trust.enabled": false,
+  "explorer.confirmDelete": false,
+  "explorer.confirmDragAndDrop": false,
+  "git.confirmSync": false
+}

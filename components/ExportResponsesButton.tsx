@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/insforge'
 
 export default function ExportResponsesButton() {
     const [loading, setLoading] = useState(false)
@@ -20,7 +19,7 @@ export default function ExportResponsesButton() {
             const url = window.URL.createObjectURL(blob)
 
             const contentDisposition = response.headers.get('Content-Disposition')
-            let filename = `responses-export-${new Date().toISOString().split('T')[0]}.xlsx`
+            let filename = `responses-export-${new Date().toISOString().split('T')[0]}.csv`
 
             if (contentDisposition) {
                 const match = contentDisposition.match(/filename="(.+)"/)
@@ -52,7 +51,7 @@ export default function ExportResponsesButton() {
             <svg className="w-4 h-4 mr-2 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            {loading ? 'Preparing Intelligence Report...' : 'Export Responses (Excel)'}
+            {loading ? 'Preparing Report...' : 'Export Responses (CSV)'}
         </button>
     )
 }

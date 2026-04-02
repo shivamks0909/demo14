@@ -15,7 +15,7 @@ export default async function AdminResponsesPage({
 
     // IP Activity Logic for badges - calculate once
     const today = new Date().toDateString()
-    const ipCountsToday = responses.reduce((acc: Record<string, number>, r) => {
+    const ipCountsToday = responses.reduce((acc: Record<string, number>, r: { created_at: string; ip?: string }) => {
         const isToday = new Date(r.created_at).toDateString() === today
         if (isToday && r.ip) {
             acc[r.ip] = (acc[r.ip] || 0) + 1

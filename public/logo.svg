@@ -1,24 +1,30 @@
-<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="240" height="60" viewBox="0 0 240 60" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!-- Gradient Definition -->
   <defs>
-    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#4F46E5" />
-      <stop offset="100%" style="stop-color:#10B981" />
+    <linearGradient id="logo_grad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#06b6d4" /> <!-- cyan-500 -->
+      <stop offset="100%" stop-color="#10b981" /> <!-- emerald-500 -->
     </linearGradient>
   </defs>
 
-  <!-- Background Circle (Soft Glass Look) -->
-  <circle cx="100" cy="100" r="90" fill="#F8FAFC" />
-  <circle cx="100" cy="100" r="90" stroke="url(#logoGradient)" stroke-width="2" stroke-dasharray="10 5" opacity="0.2" />
+  <!-- Circular Logo Icon (Left Side) -->
+  <g transform="translate(6, 6)">
+    <!-- Main Circle Outline -->
+    <circle cx="24" cy="24" r="22" stroke="url(#logo_grad)" stroke-width="4" fill="none" />
+    
+    <!-- Upward Arrow (Integrated into Circle) -->
+    <path d="M12 36C18 36 28 32 34 16M34 16L24 18M34 16L32 26" stroke="url(#logo_grad)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+    
+    <!-- Small Speech Bubbles -->
+    <rect x="14" y="14" width="8" height="6" rx="2" fill="url(#logo_grad)" opacity="0.4" />
+    <circle cx="16" cy="17" r="0.5" fill="white" />
+    <circle cx="18" cy="17" r="0.5" fill="white" />
+    <circle cx="20" cy="17" r="0.5" fill="white" />
+    
+    <path d="M30 30L36 36M36 36L32 36L36 32" stroke="url(#logo_grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6" />
+  </g>
 
-  <!-- Main "O" Icon -->
-  <circle cx="100" cy="100" r="50" stroke="url(#logoGradient)" stroke-width="12" stroke-linecap="round" />
-  
-  <!-- "Insights" Bar Chart Segment -->
-  <rect x="85" y="85" width="8" h="30" rx="4" fill="url(#logoGradient)" />
-  <rect x="100" y="75" width="8" h="40" rx="4" fill="url(#logoGradient)" />
-  <rect x="115" y="95" width="8" h="20" rx="4" fill="url(#logoGradient)" opacity="0.6" />
-
-  <!-- Magnifying Glass Handle Segment -->
-  <line x1="135" y1="135" x2="165" y2="165" stroke="url(#logoGradient)" stroke-width="12" stroke-linecap="round" />
+  <!-- Logo Text (Right Side) -->
+  <text x="64" y="40" font-family="Inter, sans-serif" font-weight="900" font-size="28" fill="#1e293b" letter-spacing="-0.04em">Opinion</text>
+  <text x="175" y="40" font-family="Inter, sans-serif" font-weight="400" font-size="28" fill="#06b6d4" letter-spacing="-0.02em">insights</text>
 </svg>

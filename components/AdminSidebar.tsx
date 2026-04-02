@@ -8,10 +8,12 @@ import {
     Layers,
     BarChart3,
     Settings as SettingsIcon,
-    Shield,
     Link2,
-    Truck
+    Truck,
+    FileText,
+    Activity
 } from 'lucide-react'
+import BrandLogo from './BrandLogo'
 
 const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -20,6 +22,7 @@ const navigation = [
     { name: 'Suppliers', href: '/admin/suppliers', icon: Truck },
     { name: 'Redirects', href: '/admin/redirects', icon: Link2 },
     { name: 'Responses', href: '/admin/responses', icon: BarChart3 },
+    { name: 'Audit Logs', href: '/admin/audit-logs', icon: Activity },
     { name: 'Settings', href: '/admin/settings', icon: SettingsIcon },
 ]
 
@@ -31,15 +34,7 @@ export default function AdminSidebar() {
             <div className="flex flex-col flex-grow bg-white border-r border-slate-100 pt-8 pb-4 overflow-y-auto">
                 {/* Premium Logo */}
                 <div className="flex items-center flex-shrink-0 px-8 mb-12">
-                    <div className="flex items-center space-x-3 group cursor-pointer">
-                        <div className="w-12 h-12 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-100 group-hover:rotate-12 transition-transform duration-500">
-                            <Shield className="w-7 h-7 text-white" />
-                        </div>
-                        <div>
-                            <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none mb-1">Voicelab</h1>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Research LLC</p>
-                        </div>
-                    </div>
+                    <BrandLogo className="h-12 w-auto" />
                 </div>
 
                 <div className="flex-grow flex flex-col px-4">

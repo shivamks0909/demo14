@@ -94,10 +94,15 @@ export default function RedirectManager({ project }: RedirectManagerProps) {
 
             <div className="mt-8 p-4 bg-amber-50 rounded-xl border border-amber-100 flex gap-3 text-amber-800 text-xs font-medium">
                 <div className="shrink-0 mt-0.5">💡</div>
-                <p>
-                    These redirect URLs use the <code>pid</code> and <code>uid</code> parameters.
-                    The <code>[UID]</code> placeholder will be automatically replaced by the vendor.
-                </p>
+                <div className="space-y-2">
+                    <p>
+                        These redirect URLs use the <code>pid</code> and <code>uid</code> parameters.
+                        The <code>[UID]</code> placeholder will be automatically replaced by the vendor.
+                    </p>
+                    <p className="mt-1">
+                        <strong>S2S Callback URLs:</strong> Use <code>session=[SESSION]</code> where <code>[SESSION]</code> represents the <code>oi_session</code> token (UUID). This token is generated per click and must be captured from the entry redirect or cookies to report completions.
+                    </p>
+                </div>
             </div>
         </div>
     )

@@ -44,9 +44,9 @@ export default function RedirectCenter({ projects }: RedirectCenterProps) {
     ]
 
     const postbackLinks = (code: string) => [
-        { label: 'S2S Complete Postback', url: `${baseUrl}/api/callback?cid=[cid]&type=complete`, id: `${code}-pb-complete`, desc: 'Server-to-server callback.' },
-        { label: 'S2S Terminate Postback', url: `${baseUrl}/api/callback?cid=[cid]&type=terminate`, id: `${code}-pb-terminate`, desc: 'Server-to-server callback.' },
-        { label: 'S2S Quota Postback', url: `${baseUrl}/api/callback?cid=[cid]&type=quota`, id: `${code}-pb-quota`, desc: 'Server-to-server callback.' },
+        { label: 'S2S Complete Postback', url: `${baseUrl}/api/callback?session=[SESSION]&type=complete`, id: `${code}-pb-complete`, desc: 'Server-to-server callback. Replace [SESSION] with the oi_session token.' },
+        { label: 'S2S Terminate Postback', url: `${baseUrl}/api/callback?session=[SESSION]&type=terminate`, id: `${code}-pb-terminate`, desc: 'Server-to-server callback. Replace [SESSION] with the oi_session token.' },
+        { label: 'S2S Quota Postback', url: `${baseUrl}/api/callback?session=[SESSION]&type=quota`, id: `${code}-pb-quota`, desc: 'Server-to-server callback. Replace [SESSION] with the oi_session token.' },
     ]
 
     return (
