@@ -53,14 +53,38 @@ export function WavyOutcomeView({ status, statusKeyword }: WavyOutcomeViewProps)
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    // Tier 1: fetch by oi_session (most accurate, UUID-based)
     if (params.session && params.session !== "-") {
       setIsLoading(true);
       fetch(`/api/respondent-stats/${params.session}`)
         .then(r => r.ok ? r.json() : null)
-        .then(data => { setStats(data); setIsLoading(false); })
-        .catch(() => setIsLoading(false));
+        .then(data => {
+          if (data) { setStats(data); setIsLoading(false); return; }
+          // If session lookup failed, fall through to uid+code lookup
+          tryLookupByUidCode();
+        })
+        .catch(() => tryLookupByUidCode());
+      return;
     }
-  }, [params.session]);
+    // Tier 2: fetch by uid + code when session is not in URL
+    // (TrustSample/Quantclix redirect back without oi_session)
+    tryLookupByUidCode();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.session, params.uid, params.pid]);
+
+  function tryLookupByUidCode() {
+    const uid = params.uid;
+    const code = params.pid; // pid is already aliased from ?code= or ?pid=
+    if (!uid || uid === "-" || !code || code === "-") {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    fetch(`/api/respondent-stats/lookup?uid=${encodeURIComponent(uid)}&code=${encodeURIComponent(code)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { setStats(data); setIsLoading(false); })
+      .catch(() => setIsLoading(false));
+  }
 
   const sanitize = (val: string | null | undefined) => {
     if (!val) return "—";

@@ -144,8 +144,7 @@ export const dashboardService = {
         const { error } = await insforge.database
             .from('projects')
             .update({
-                deleted_at: new Date().toISOString(),
-                status: 'deleted'
+                deleted_at: new Date().toISOString()
             })
             .eq('id', id)
         return { error }

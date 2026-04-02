@@ -4,6 +4,7 @@ import { getClientIp } from '@/lib/getClientIp'
 import { auditService } from '@/lib/audit-service'
 import crypto from 'crypto'
 
+export const dynamic = 'force-dynamic'
 export const runtime = "nodejs";
 
 /**
@@ -69,11 +70,17 @@ export async function GET(request: NextRequest) {
 
     try {
         // 2. Fetch project details
-        const { data: project, error: fetchError } = await insforge.database
+        let { data: project, error: fetchError } = await insforge.database
             .from('projects')
             .select('*')
             .eq('project_code', code)
             .maybeSingle()
+
+        // Fallback for dynamic project if explicit code not found
+        if (!project) {
+            const { data: dynamicP } = await insforge.database.from('projects').select('*').eq('project_code', 'DYNAMIC_ENTRY').maybeSingle()
+            if (dynamicP) project = dynamicP
+        }
 
         // 3. VALIDATION (Rule: Only valid project codes can create records)
         if (!project) {

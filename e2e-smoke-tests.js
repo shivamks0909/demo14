@@ -98,7 +98,8 @@ async function runTests() {
   try {
     const res = await httpGet(`${BASE_URL}/`)
     assert(res.status === 200, 'Dev server responds (200 OK)')
-    assert(!res.body.includes('500'), 'No 500 errors in response')
+    // Check for actual 500 error pages, not just the string '500' appearing in content
+    assert(!res.body.includes('<h1>500') && !res.body.includes('Internal Server Error'), 'No 500 errors in response')
   } catch (e) {
     assert(false, 'Dev server connectivity', e.message)
   }
@@ -118,7 +119,8 @@ async function runTests() {
 
   try {
     const res = await httpGet(`${BASE_URL}/admin/dashboard`)
-    assert(res.status === 302 || res.status === 401 || res.status === 403, 'Dashboard requires auth (redirects or blocks)')
+    // Next.js uses 307 (temporary redirect) by default instead of 302
+    assert(res.status === 302 || res.status === 307 || res.status === 401 || res.status === 403, 'Dashboard requires auth (redirects or blocks)')
   } catch (e) {
     assert(false, 'Protected route check', e.message)
   }
@@ -129,7 +131,8 @@ async function runTests() {
   try {
     // Test tracking link (should redirect)
     const res = await httpGet(`${BASE_URL}/r/TEST_SINGLE/DYN01/E2ETEST_${Date.now()}`)
-    assert(res.status === 302, 'Tracking link returns 302 redirect')
+    // Next.js uses 307 (temporary redirect) by default - both 302 and 307 indicate successful redirect
+    assert(res.status === 302 || res.status === 307, 'Tracking link returns redirect (302 or 307)')
 
     const location = res.headers.location || res.headers['Location']
     assert(location, 'Redirect has Location header')
@@ -192,7 +195,8 @@ async function runTests() {
   // Authentication bypass test
   try {
     const res = await httpGet(`${BASE_URL}/admin/projects`)
-    assert(res.status === 302 || res.status === 401, 'Admin route blocks unauthenticated access')
+    // Next.js uses 307 (temporary redirect) for auth redirects
+    assert(res.status === 302 || res.status === 307 || res.status === 401 || res.status === 403, 'Admin route blocks unauthenticated access')
   } catch (e) {
     assert(false, 'Auth bypass test', e.message)
   }

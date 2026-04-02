@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { middleware } from '@/middleware'
+import { securityMiddleware as middleware } from '@/middleware-security'
 
 // Mock the randomUUID function
 import { randomUUID } from 'crypto'

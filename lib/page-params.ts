@@ -72,7 +72,7 @@ export function getSessionParams(search: string): SessionParams {
     hour12: true, timeZoneName: "short"
   }).replace(",", "");
   return {
-    pid: p.get("pid") || "-", uid: p.get("uid") || "-", ip: p.get("ip") || "-",
+    pid: p.get("pid") || p.get("code") || "-", uid: p.get("uid") || "-", ip: p.get("ip") || "-",
     entryTime: formatTimestamp(startRaw), exitTime: formatTimestamp(endRaw),
     duration, loiMinutes, currentTime, reason: p.get("reason") || "-",
     country: p.get("country") || "-", status: p.get("status") || "-",

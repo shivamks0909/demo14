@@ -15,6 +15,7 @@ async function StatusContent({ searchParams }: { searchParams: Promise<{ [key: s
             break
         case 'quota':
         case 'quotafull':
+        case 'quota_full':
             statusLabel = "Quota Full"
             keyword = "quotafull"
             break
@@ -22,6 +23,16 @@ async function StatusContent({ searchParams }: { searchParams: Promise<{ [key: s
         case 'security_terminate':
             statusLabel = "Terminated"
             keyword = "security"
+            break
+        case 'paused':
+            statusLabel = "Project Paused"
+            keyword = "paused"
+            break
+        case 'duplicate':
+        case 'duplicate_string':
+        case 'duplicate_ip':
+            statusLabel = "Duplicate Entry"
+            keyword = "duplicate"
             break
         default:
             statusLabel = "Complete"

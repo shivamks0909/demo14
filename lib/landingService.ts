@@ -117,11 +117,9 @@ export async function updateResponseStatus(
     if (clickid) updatePayload.hash = clickid
     if (lastLandingPage) updatePayload.last_landing_page = lastLandingPage
 
-    if (newStatus === 'complete') updatePayload.completed_at = now.toISOString()
-
     const terminalStatuses = ['complete', 'terminate', 'quota', 'security_terminate', 'duplicate_ip', 'duplicate_string', 'terminated', 'quota_full']
     if (terminalStatuses.includes(newStatus)) {
-        updatePayload.completed_at = now.toISOString()
+        updatePayload.completion_time = now.toISOString()
 
         if (existing.start_time) {
             const startTime = new Date(existing.start_time)

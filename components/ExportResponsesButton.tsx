@@ -51,7 +51,7 @@ export default function ExportResponsesButton() {
             <svg className="w-4 h-4 mr-2 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            {loading ? 'Preparing Report...' : 'Export Responses (CSV)'}
+            {loading ? 'Preparing Report...' : '⬇ Export Responses (Excel)'}
         </button>
     )
 }

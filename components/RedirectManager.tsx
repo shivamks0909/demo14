@@ -32,7 +32,7 @@ export default function RedirectManager({ project }: RedirectManagerProps) {
     }
 
     const generateLinks = (code: string) => [
-        { label: 'Entry Router Link', url: `${baseUrl}/track?code=${code}&uid=[UID]`, id: 'entry' },
+        { label: 'Entry Router Link', url: `${baseUrl}/r/${code}/[UID]`, id: 'entry' },
         { label: 'Complete Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=complete`, id: 'complete' },
         { label: 'Terminate Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=terminate`, id: 'terminate' },
         { label: 'Quota Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=quota`, id: 'quota' },

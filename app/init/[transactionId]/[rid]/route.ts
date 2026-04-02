@@ -81,14 +81,15 @@ export async function GET(
             return response
         }
 
-        // 4. Map Errors to Specialized Redirects
+        // 4. Map Errors to Specialized Redirects (include rid for display on status page)
+        const uidEnc = encodeURIComponent(rid)
         const errorMap: Record<string, string> = {
-          THROTTLED: '/security-terminate', // Legacy requirement for custom init
-          DUPLICATE: '/duplicate-string',
-          QUOTA_FULL: '/quotafull',
-          GEO_MISMATCH: '/paused?title=GEO_MISMATCH',
-          COUNTRY_UNAVAILABLE: '/paused?title=COUNTRY+UNAVAILABLE',
-          SERVER_ERROR: '/paused?title=SERVER_ERROR'
+          THROTTLED:           `/paused?title=THROTTLED`,
+          DUPLICATE:           `/status?code=external&uid=${uidEnc}&type=duplicate_string`,
+          QUOTA_FULL:          `/status?code=external&uid=${uidEnc}&type=quota`,
+          GEO_MISMATCH:        `/paused?title=GEO_MISMATCH`,
+          COUNTRY_UNAVAILABLE: `/paused?title=COUNTRY+UNAVAILABLE`,
+          SERVER_ERROR:        `/paused?title=SERVER_ERROR`
         }
 
         const redirectPath = errorMap[result.errorType || 'SERVER_ERROR'] || '/paused?title=ENTRY_DENIED'

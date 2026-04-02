@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
         const cvr = summary.total > 0 ? ((summary.completes / summary.total) * 100).toFixed(2) : '0.00'
         summarySheet.addRow(['Conversion Rate', `${cvr}%`]).font = { bold: true }
         if (projectCode) summarySheet.addRow(['Filtered Project', projectCode])
-        if (status) summarySheet.addRow(['Filtered Status', status])
+        if (filters.status) summarySheet.addRow(['Filtered Status', filters.status])
         summarySheet.commit()
 
         workbook.commit()

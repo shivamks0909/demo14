@@ -5,29 +5,26 @@ import { TrackingService, EntryContext } from '@/lib/tracking-service'
 import { auditService } from '@/lib/audit-service'
 
 export const dynamic = 'force-dynamic'
-export const runtime = "nodejs"
+export const runtime = 'nodejs'
 
+/**
+ * Legacy/Alternative Start Route
+ * Used for /start/[code]?uid=...&supplier=...
+ */
 export async function GET(
     request: NextRequest,
-    context: { params: Promise<{ code: string; slug: string[] }> }
+    context: { params: Promise<{ code: string }> }
 ) {
-    const { code, slug } = await context.params
+    const { code } = await context.params
     const ip = getClientIp(request)
     const userAgent = request.headers.get('user-agent') || 'Unknown'
+    const searchParams = request.nextUrl.searchParams
+    
+    // Explicitly fallback to empty string if missing, though it'll be replaced by UUID downstream if missing.
+    const incomingUid = searchParams.get('uid') || 'N/A'
+    const supplierToken = searchParams.get('supplier') || null
 
-    // 1. Resolve UID and Supplier from slug
-    let incomingUid: string | null = null
-    let supplierToken: string | null = null
-
-    if (slug.length === 1) {
-        incomingUid = slug[0]
-        supplierToken = request.nextUrl.searchParams.get('supplier') || null
-    } else if (slug.length >= 2) {
-        supplierToken = slug[0]
-        incomingUid = slug[1]
-    }
-
-    if (!code || !incomingUid) {
+    if (!code) {
         return NextResponse.redirect(new URL('/paused?title=INVALID_LINK', request.url))
     }
 
@@ -75,7 +72,7 @@ export async function GET(
             userAgent,
             ip,
             geoData,
-            queryParams: Object.fromEntries(request.nextUrl.searchParams.entries())
+            queryParams: Object.fromEntries(searchParams.entries())
         }
 
         const result = await TrackingService.processEntry(ctx)
@@ -93,7 +90,6 @@ export async function GET(
         }
 
         // 5. Handle Specialized Error Redirects
-        // Include code + uid in all redirects so the status page can display them
         const uid = encodeURIComponent(incomingUid)
         const errorMap: Record<string, string> = {
           PROJECT_PAUSED:      `/status?code=${code}&uid=${uid}&type=paused`,
@@ -109,7 +105,7 @@ export async function GET(
         return NextResponse.redirect(new URL(redirectPath, request.url))
 
     } catch (error: any) {
-        console.error('[Routing] Unified Error:', error)
+        console.error('[Routing Start] Unified Error:', error)
         return NextResponse.redirect(new URL('/paused?title=SERVER_ERROR', request.url))
     }
 }

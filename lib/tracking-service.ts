@@ -283,11 +283,11 @@ export class TrackingService {
           uid: ctx.rid || sessionToken,
           clickid: sessionToken,
           oi_session: sessionToken,
+          session_token: sessionToken,
           status: 'in_progress',
           ip: ctx.ip,
           user_agent: ctx.userAgent,
           device_type: deviceType,
-          transaction_id: ctx.transactionId,
           supplier_token: ctx.supplierToken,
           created_at: new Date().toISOString()
         }])
@@ -408,9 +408,9 @@ export class TrackingService {
 
   private static detectDevice(ua: string): string {
     const lowerUA = ua.toLowerCase()
-    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(lowerUA)) return 'tablet'
-    if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) return 'mobile'
-    return 'desktop'
+    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(lowerUA)) return 'Tablet'
+    if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) return 'Mobile'
+    return 'Desktop'
   }
 
   private static buildUrl(
@@ -423,7 +423,19 @@ export class TrackingService {
     uidParam?: string | null,
     uidParams?: any[] | null
   ): string {
-    const url = new URL(baseUrl)
+    let finalUrlStr = baseUrl
+
+    // 1. Placeholder expansion
+    if (rid) {
+      const placeholders = ['[UID]', '[identifier]', '{uid}', '{UID}', '{ResID}', '{rid}', '{ID}', '[ID]', '{id}']
+      placeholders.forEach(p => {
+        if (finalUrlStr.includes(p)) {
+          finalUrlStr = finalUrlStr.replaceAll(p, encodeURIComponent(rid))
+        }
+      })
+    }
+
+    const url = new URL(finalUrlStr)
     
     // Core parameters (Standard prefixes)
     url.searchParams.set(`${prefix}session`, session)
@@ -432,7 +444,15 @@ export class TrackingService {
 
     // Vendor-specific parameter mapping
     if (pidParam && rid) url.searchParams.set(pidParam, rid)
-    if (uidParam && rid) url.searchParams.set(uidParam, rid)
+    
+    // BUG FIX: Add uid if neither configured param nor placeholder was used
+    const actualUidParam = uidParam || 'uid'
+    // check if it was replaced in URL or already in searchParams
+    if (!url.searchParams.has(actualUidParam) && !baseUrl.includes('[UID]') && !baseUrl.includes('{uid}')) {
+        url.searchParams.set(actualUidParam, rid)
+    } else if (uidParam && rid) {
+        url.searchParams.set(uidParam, rid)
+    }
 
     // Complex multi-parameter mapping
     if (uidParams && Array.isArray(uidParams)) {

@@ -36,7 +36,7 @@ export const auditService = {
         .select('*')
         .order('created_at', { ascending: false })
         .limit(limit)
-        .offset(offset)
+        .range(offset, offset + limit - 1)
       return data || []
     } catch (error) {
       console.error('[Audit] Failed to fetch logs:', error)
