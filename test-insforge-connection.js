@@ -12,7 +12,7 @@ const client = new Client({
 client.connect()
   .then(async () => {
     console.log('? Connected to InsForge database!');
-    
+
     try {
       // List existing tables
       const tableResult = await client.query(
@@ -24,12 +24,12 @@ client.connect()
       } else {
         tableResult.rows.forEach(row => console.log('  -', row.tablename));
       }
-      
+
       // Check if our required tables exist
       const tables = tableResult.rows.map(r => r.tablename);
       const requiredTables = ['clients', 'projects', 'responses'];
       const missingTables = requiredTables.filter(t => !tables.includes(t));
-      
+
       if (missingTables.length > 0) {
         console.log('\n? Missing tables:', missingTables.join(', '));
         console.log('   Run the migration script to create them.');

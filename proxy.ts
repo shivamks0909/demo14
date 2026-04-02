@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 const ADMIN_ROUTES = ['/admin', '/api/admin']
 const LOGIN_ROUTE = '/login'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     const pathname = request.nextUrl.pathname
 
     // Check if this is an admin route
