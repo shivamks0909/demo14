@@ -51,7 +51,7 @@ export default function ProjectList({ projects: initialProjects }: ProjectListPr
             if (p.id !== projectId) return p
             return {
                 ...p,
-                country_urls: p.country_urls.map(c =>
+                country_urls: (p.country_urls || []).map(c =>
                     c.country_code === countryCode ? { ...c, active: newActive } : c
                 )
             }
@@ -196,7 +196,7 @@ export default function ProjectList({ projects: initialProjects }: ProjectListPr
                                 onClick={() => setOpenLinks(openLinks === project.id ? null : project.id)}
                                 className={`px-5 py-2.5 rounded-2xl flex items-center space-x-2 transition-all font-black text-[11px] uppercase tracking-widest group/btn ${openLinks === project.id ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-white hover:border-indigo-300 hover:text-indigo-600'}`}
                             >
-                                <span>{project.is_multi_country ? (project.country_urls.length) : 1} Link{(!project.is_multi_country || project.country_urls.length !== 1) ? 's' : ''}</span>
+                                <span>{project.is_multi_country ? (project.country_urls?.length || 0) : 1} Link{(!project.is_multi_country || (project.country_urls?.length || 0) !== 1) ? 's' : ''}</span>
                                 <svg className={`w-4 h-4 transition-transform duration-300 ${openLinks === project.id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
                                 </svg>
@@ -255,7 +255,7 @@ export default function ProjectList({ projects: initialProjects }: ProjectListPr
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                            {project.country_urls.map((country, idx) => {
+                                            {(project.country_urls || []).map((country, idx) => {
                                                 const isActive = (country as any).active !== false
                                                 const url = `${baseUrl}/track?code=${project.project_code}&country=${country.country_code}&uid=[UID]`;
                                                 return (

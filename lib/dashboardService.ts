@@ -100,6 +100,7 @@ export const dashboardService = {
 
         return (data as any[]).map((p: any) => ({
             ...p,
+            country_urls: p.country_urls || [],
             client_name: p.clients?.name || 'Unknown Client'
         }))
     },
@@ -203,8 +204,11 @@ export const dashboardService = {
         const insforge = await createAdminClient()
         if (!insforge) return null
         const { data, error } = await insforge.database.from('projects').select('*').eq('id', id).maybeSingle()
-        if (error) return null
-        return data as any || null
+        if (error || !data) return null
+        return {
+            ...data,
+            country_urls: data.country_urls || []
+        } as any
     },
 
     async updateProject(id: string, project: any) {
