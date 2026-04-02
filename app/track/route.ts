@@ -258,8 +258,7 @@ export async function GET(request: NextRequest) {
                 country_code: countryParam || geoCountry,
                 clickid: validatedUid,
                 hash: validatedUid,
-                last_landing_page: 'track_entry',
-                reason: 'normal_flow'
+                last_landing_page: 'track_entry'
             }])
 
         if (insertError) {
