@@ -93,7 +93,7 @@ export const dashboardService = {
             .is('deleted_at', null)
             .order('created_at', { ascending: false })
 
-        if (error) {
+        if (error || !data) {
             console.error('Error fetching projects:', error)
             return []
         }

@@ -6,10 +6,12 @@ import ProjectList from '@/components/ProjectList'
 import ResponseMaintenance from '@/components/ResponseMaintenance'
 
 export default async function AdminProjectsPage() {
-    const [projects, clients] = await Promise.all([
+    const [projectsRaw, clientsRaw] = await Promise.all([
         dashboardService.getProjects(),
         dashboardService.getClients()
     ])
+    const projects = projectsRaw ?? []
+    const clients = clientsRaw ?? []
 
     return (
         <div className="space-y-12 pb-24 bg-slate-50/50 min-h-screen">
