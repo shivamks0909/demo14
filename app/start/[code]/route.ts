@@ -29,7 +29,10 @@ export async function GET(
     }
 
     const { database: db } = await getUnifiedDb()
-    if (!db) return NextResponse.redirect(new URL('/paused?title=SYSTEM_OFFLINE', request.url))
+    if (!db) {
+        const uid = encodeURIComponent(incomingUid)
+        return NextResponse.redirect(new URL(`/paused?title=SYSTEM_OFFLINE&uid=${uid}`, request.url))
+    }
 
     try {
         // 2. Resolve Project BY CODE
@@ -51,7 +54,8 @@ export async function GET(
                 payload: { reason: 'project_not_found', project_code: code, uid: incomingUid },
                 ip, user_agent: userAgent
             })
-            return NextResponse.redirect(new URL('/paused?title=PROJECT_NOT_FOUND', request.url))
+            const uid = encodeURIComponent(incomingUid)
+            return NextResponse.redirect(new URL(`/paused?title=PROJECT_NOT_FOUND&uid=${uid}`, request.url))
         }
 
         // 3. Fetch GeoIP data (Production-grade service)
@@ -93,19 +97,20 @@ export async function GET(
         const uid = encodeURIComponent(incomingUid)
         const errorMap: Record<string, string> = {
           PROJECT_PAUSED:      `/status?code=${code}&uid=${uid}&type=paused`,
-          THROTTLED:           `/paused?title=THROTTLED&desc=Too+many+requests.+Please+wait.`,
+          THROTTLED:           `/paused?title=THROTTLED&desc=Too+many+requests.+Please+wait.&uid=${uid}`,
           DUPLICATE:           `/status?code=${code}&uid=${uid}&type=duplicate_string`,
-          GEO_MISMATCH:        `/paused?title=GEO_MISMATCH`,
-          COUNTRY_UNAVAILABLE: `/paused?title=COUNTRY+UNAVAILABLE`,
+          GEO_MISMATCH:        `/paused?title=GEO_MISMATCH&uid=${uid}`,
+          COUNTRY_UNAVAILABLE: `/paused?title=COUNTRY+UNAVAILABLE&uid=${uid}`,
           QUOTA_FULL:          `/status?code=${code}&uid=${uid}&type=quota`,
-          SERVER_ERROR:        `/paused?title=SERVER_ERROR`
+          SERVER_ERROR:        `/paused?title=SERVER_ERROR&uid=${uid}`
         }
 
-        const redirectPath = errorMap[result.errorType || 'SERVER_ERROR'] || `/paused?title=ENTRY_DENIED`
+        const redirectPath = errorMap[result.errorType || 'SERVER_ERROR'] || `/paused?title=ENTRY_DENIED&uid=${uid}`
         return NextResponse.redirect(new URL(redirectPath, request.url))
 
     } catch (error: any) {
         console.error('[Routing Start] Unified Error:', error)
-        return NextResponse.redirect(new URL('/paused?title=SERVER_ERROR', request.url))
+        const uid = encodeURIComponent(incomingUid)
+        return NextResponse.redirect(new URL(`/paused?title=SERVER_ERROR&uid=${uid}`, request.url))
     }
 }

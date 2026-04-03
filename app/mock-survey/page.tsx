@@ -13,6 +13,32 @@ function SurveyContent() {
     const handleCallback = async (type: string) => {
         setLoading(true)
         try {
+            // First, ensure response record exists for this session
+            const initRes = await fetch('/api/mock-init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pid: pid,
+                    oi_session: oiSession,
+                    uid: oiSession // Use session as UID for test
+                })
+            })
+            
+            if (!initRes.ok) {
+                const errData = await initRes.json().catch(() => ({}))
+                setResult('Init failed: ' + (errData.error || 'Unknown error'))
+                setLoading(false)
+                return
+            }
+            
+            const initData = await initRes.json()
+            if (!initData.success) {
+                setResult('Init failed: ' + (initData.error || 'Unknown error'))
+                setLoading(false)
+                return
+            }
+            
+            // Now trigger callback
             const res = await fetch(`/api/callback?pid=${pid}&cid=${oiSession}&type=${type}&sig=${oiSig}`)
             const data = await res.json()
             if (data.success) {

@@ -131,26 +131,31 @@ export async function updateResponseStatus(
     // STEP 2 — Update by specific id
     console.log(`[updateResponseStatus] Attempting update for id=${existing.id} to ${newStatus}`);
 
-    const { error, data } = await db.database
-        .from('responses')
-        .update(updatePayload)
-        .eq('id', existing.id)
-        .in('status', ['in_progress', 'started', 'click'])
-        .select()
-        .single()
+    try {
+        const { error, data } = await db.database
+            .from('responses')
+            .update(updatePayload)
+            .eq('id', existing.id)
+            .in('status', ['in_progress', 'started', 'click'])
+            .select()
+            .single()
 
-    if (error) {
-        console.error(`[updateResponseStatus] Update failed for id=${existing.id}:`, error);
+        if (error) {
+            console.error(`[updateResponseStatus] Update failed for id=${existing.id}:`, error);
+            return null;
+        }
+
+        if (!data) {
+            console.warn(`[updateResponseStatus] Update affected 0 rows for id=${existing.id}. Status might have changed.`);
+            return null;
+        }
+
+        console.log(`[updateResponseStatus] Successfully updated id=${existing.id} to ${newStatus}`);
+        return data as any;
+    } catch (e: any) {
+        console.error(`[updateResponseStatus] CRITICAL ERROR during update for id=${existing.id}:`, e.message);
         return null;
     }
-
-    if (!data) {
-        console.warn(`[updateResponseStatus] Update affected 0 rows for id=${existing.id}. Status might have changed.`);
-        return null;
-    }
-
-    console.log(`[updateResponseStatus] Successfully updated id=${existing.id} to ${newStatus}`);
-    return data as any;
 }
 
 export async function getLandingPageData(

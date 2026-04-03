@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { WavyBackground } from "@/components/ui/wavy-background";
-import { useSessionParams } from "@/lib/page-params";
+import { WavyBackground } from "../ui/wavy-background";
+import { useSessionParams } from "../../lib/page-params";
 
 interface WavyOutcomeViewProps {
   status: string;

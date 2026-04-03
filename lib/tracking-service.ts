@@ -1,6 +1,6 @@
 import { getUnifiedDb } from './unified-db'
 import { auditService } from './audit-service'
-import crypto from 'crypto'
+import * as crypto from 'crypto'
 
 export type TrackingResult = {
   success: boolean
@@ -42,6 +42,11 @@ export class TrackingService {
       if (pError || !project) return { success: false, errorType: 'PROJECT_NOT_FOUND' }
       if (project.status !== 'active') return { success: false, errorType: 'PROJECT_PAUSED' }
 
+      // 1.1 Normalized UID (Handle placeholder string from user)
+      let validatedUid = (ctx.rid && ctx.rid.trim() !== '' && !ctx.rid.includes('[UID]') && !ctx.rid.includes('{uid}') && ctx.rid !== 'N/A')
+        ? ctx.rid
+        : crypto.randomUUID()
+
       // 2. IP Throttling (3 requests per minute per project)
       if (ctx.ip !== '127.0.0.1' && ctx.ip !== '::1') {
         const oneMinAgo = new Date(Date.now() - 60 * 1000).toISOString()
@@ -64,18 +69,18 @@ export class TrackingService {
       }
 
       // 3. Duplicate UID Check
-      if (ctx.rid) {
+      if (validatedUid) {
         const { data: existing } = await db
             .from('responses')
             .select('id')
             .eq('project_id', project.id)
-            .eq('uid', ctx.rid)
+            .eq('uid', validatedUid)
             .maybeSingle()
 
         if (existing) {
           await auditService.log({
             event_type: 'SECURITY_DUPLICATE',
-            payload: { project_id: project.id, rid: ctx.rid, ip: ctx.ip },
+            payload: { project_id: project.id, rid: validatedUid, ip: ctx.ip },
             ip: ctx.ip,
             user_agent: ctx.userAgent
           })
@@ -89,7 +94,7 @@ export class TrackingService {
           await auditService.log({
             event_type: 'SECURITY_GEO_MISMATCH',
             payload: { 
-              project_id: project.id,
+               project_id: project.id,
               ip: ctx.ip, 
               expected: ctx.queryParams.country, 
               actual: ctx.geoData.country 
@@ -105,81 +110,30 @@ export class TrackingService {
       let allowedCountries: string[] = []
       let countryTargetUrl: string | null = null
       if (project.is_multi_country && ctx.queryParams.country) {
-        let countryUrlsArray: Array<{country_code: string; target_url: string; active?: boolean}> = []
+        let countryUrlsArray: any[] = []
         try {
           if (typeof project.country_urls === 'string') {
             countryUrlsArray = JSON.parse(project.country_urls)
           } else if (Array.isArray(project.country_urls)) {
             countryUrlsArray = project.country_urls
-          } else if (project.country_urls !== null && project.country_urls !== undefined) {
-            try {
-              const normalized = String(project.country_urls)
-              if (normalized.trim().startsWith('[') || normalized.trim().startsWith('{')) {
-                countryUrlsArray = JSON.parse(normalized)
-              } else {
-                console.warn('[TrackingService] Unrecognized country_urls format:', typeof project.country_urls)
-                countryUrlsArray = []
-              }
-            } catch (e2) {
-              console.warn('[TrackingService] Failed to parse country_urls after string conversion:', e2)
-              countryUrlsArray = []
-            }
-          } else {
-            countryUrlsArray = []
           }
         } catch (e) {
           console.warn('[TrackingService] Failed to parse country_urls:', e)
-          countryUrlsArray = []
         }
 
-        // Validate and sanitize each entry
-        const validatedCountries: Array<{country_code: string; target_url: string; active?: boolean}> = []
-        for (const entry of countryUrlsArray) {
-          try {
-            if (!entry) continue
-            if (typeof entry !== 'object' || Array.isArray(entry)) continue
-            const rawCountry = entry.country_code
-            const countryCode = typeof rawCountry === 'string' ? rawCountry.trim().toUpperCase() : null
-            if (!countryCode || countryCode.length < 2 || countryCode.length > 3) continue
-            const rawUrl = entry.target_url
-            const targetUrl = typeof rawUrl === 'string' ? rawUrl.trim() : null
-            if (!targetUrl || !targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) continue
-            const active = entry.active !== false
-            validatedCountries.push({ country_code: countryCode, target_url: targetUrl, active })
-          } catch (err) {
-            console.warn('[TrackingService] Error validating country_urls entry:', err, entry)
-          }
-        }
-
-        // Get list of active allowed countries
-        allowedCountries = validatedCountries
-          .filter(c => c.active)
-          .map(c => c.country_code)
-
-        // Find target URL for the requested country
-        const countryConfig = validatedCountries.find(c => c.country_code === ctx.queryParams.country && c.active)
+        const countryConfig = countryUrlsArray.find((c: any) => c.country_code === ctx.queryParams.country && c.active !== false)
         if (countryConfig) {
           countryTargetUrl = countryConfig.target_url || null
         }
 
+        allowedCountries = countryUrlsArray.filter((c: any) => c.active !== false).map((c: any) => c.country_code)
+
         if (allowedCountries.length > 0 && !allowedCountries.includes(ctx.queryParams.country)) {
-          await auditService.log({
-            event_type: 'SECURITY_COUNTRY_UNAVAILABLE',
-            payload: { 
-              project_id: project.id,
-              ip: ctx.ip, 
-              requested_country: ctx.queryParams.country,
-              available_countries: allowedCountries
-            },
-            ip: ctx.ip,
-            user_agent: ctx.userAgent
-          })
           return { success: false, errorType: 'COUNTRY_UNAVAILABLE', errorMessage: `Country ${ctx.queryParams.country} not available for this project.`, error: 'Country unavailable' }
         }
       }
 
-      // 6. Supplier Project Link Validation (Quota Management)
-      // Only fetch supplierId; atomic quota check happens in RPC call
+      // 6. Supplier Identification
       let supplierId: string | null = null
       if (ctx.supplierToken) {
         const { data: supplier } = await db
@@ -194,28 +148,48 @@ export class TrackingService {
         }
       }
 
-      // Determine final destination URL (country-specific if available)
+      // Determine final destination URL
       const finalBaseUrl = countryTargetUrl || project.base_url
 
       // 7. Device Detection
       const deviceType = this.detectDevice(ctx.userAgent)
 
+      // 7.1 PID Generation
+      let clientPid: string | null = null
+      if (project.pid_prefix) {
+        const { data: updatedProject, error: pidError } = await db
+          .from('projects')
+          .update({ pid_counter: (project.pid_counter || 0) + 1 })
+          .eq('id', project.id)
+          .select('pid_counter')
+          .single()
+
+        if (!pidError && updatedProject) {
+          const prefix = project.pid_prefix || ''
+          const padding = project.pid_padding || 2
+          const counter = updatedProject.pid_counter
+          const countryPart = (ctx.queryParams.country || '').toUpperCase()
+          clientPid = `${prefix}${countryPart}${String(counter).padStart(padding, '0')}`
+        }
+      }
+
       // 8. Build Redirect URL (Smart Injection)
       const sessionToken = crypto.randomUUID()
-      const hashId = crypto.createHash('md5').update(`${ctx.rid || sessionToken}-${project.id}`).digest('hex').substring(0, 8)
+      const hashId = crypto.randomUUID().substring(0, 8)
       
       const redirectUrl = this.buildUrl(
         finalBaseUrl,
         sessionToken,
-        ctx.rid || '',
+        validatedUid,
         hashId,
         project.oi_prefix || 'oi_',
         project.client_pid_param,
         project.client_uid_param,
-        project.uid_params
+        project.uid_params,
+        clientPid
       )
 
-      // 9. Atomic Quota Increment (if supplier) - MUST happen before response creation
+      // 9. Atomic Quota Increment
       let quotaOk = true
       if (ctx.supplierToken && supplierId) {
         try {
@@ -224,79 +198,43 @@ export class TrackingService {
             p_supplier_id: supplierId
           })
 
-          if (quotaError) {
-            console.error('[TrackingService] Quota increment RPC error:', quotaError)
-            await auditService.log({
-              event_type: 'QUOTA_INCREMENT_ERROR',
-              payload: {
-                supplier_id: supplierId,
-                project_id: project.id,
-                error: quotaError.message || 'RPC execution failed',
-                level: 'error'
-              },
-              ip: ctx.ip,
-              user_agent: ctx.userAgent
-            })
-            quotaOk = false
-          } else if (incrementSuccess === false) {
-            console.warn('[TrackingService] Quota exceeded for supplier')
-            await auditService.log({
-              event_type: 'QUOTA_EXCEEDED',
-              payload: {
-                supplier_id: supplierId,
-                project_id: project.id
-              },
-              ip: ctx.ip,
-              user_agent: ctx.userAgent
-            })
+          if (quotaError || incrementSuccess === false) {
             quotaOk = false
           }
-        } catch (err: any) {
-          console.error('[TrackingService] Critical Quota Error:', err)
-          await auditService.log({
-            event_type: 'QUOTA_INCREMENT_ERROR',
-            payload: {
-              supplier_id: supplierId,
-              project_id: project.id,
-              error: err?.message || 'Unknown exception',
-              level: 'critical'
-            },
-            ip: ctx.ip,
-            user_agent: ctx.userAgent
-          })
+        } catch (err) {
+          console.error('[TrackingService] Quota check failed:', err)
           quotaOk = false
         }
       }
 
-      // If quota check failed, return early without creating response
       if (!quotaOk) {
         return { success: false, errorType: 'QUOTA_FULL', errorMessage: 'Quota exceeded for this supplier.', error: 'Quota full' }
       }
 
-      // 10. Create Response Record (only after quota is confirmed)
-      const { data: response, error: rError } = await db
-        .from('responses')
-        .insert([{
-          project_id: project.id,
-          project_code: project.project_code,
-          project_name: project.project_name,
-          uid: ctx.rid || sessionToken,
-          clickid: sessionToken,
-          oi_session: sessionToken,
-          session_token: sessionToken,
-          status: 'in_progress',
-          ip: ctx.ip,
-          user_agent: ctx.userAgent,
-          device_type: deviceType,
-          supplier_token: ctx.supplierToken,
-          created_at: new Date().toISOString()
-        }])
-        .select()
-        .single()
+      // 10. Create Response Record
+       const { data: response, error: rError } = await db
+         .from('responses')
+         .insert([{
+           project_id: project.id,
+           project_code: project.project_code,
+           project_name: project.project_name,
+           uid: validatedUid,
+           clickid: sessionToken,
+           oi_session: sessionToken,
+           session_token: sessionToken,
+           status: 'in_progress',
+           ip: ctx.ip,
+           user_agent: ctx.userAgent,
+           device_type: deviceType,
+           supplier_uid: ctx.supplierToken,
+           created_at: new Date().toISOString()
+         }])
+         .select()
+         .single()
 
       if (rError) throw rError
 
-      // 11. Audit Log for Success
+      // 11. Audit Log 
       await auditService.log({
         event_type: 'ROUTING_ENTRY',
         payload: { 
@@ -332,7 +270,7 @@ export class TrackingService {
   }
 
   /**
-   * Compatibility method for callbacks
+   * Update response status
    */
   async updateStatus({ clickid, status }: { clickid: string, status: string }) {
     const { database: db } = await getUnifiedDb()
@@ -349,21 +287,13 @@ export class TrackingService {
   }
 
   /**
-   * Compatibility method for tests
+   * Logic to ensure project exists for tests
    */
   async ensureProject(projectCode: string, baseUrl: string) {
     const { database: db } = await getUnifiedDb()
-    
-    // Check existing
-    const { data: existing } = await db
-        .from('projects')
-        .select('id, project_code')
-        .eq('project_code', projectCode)
-        .maybeSingle()
-
+    const { data: existing } = await db.from('projects').select('id, project_code').eq('project_code', projectCode).maybeSingle()
     if (existing) return { project_id: existing.id, project_code: existing.project_code }
 
-    // Create new
     const id = `proj_auto_${Date.now()}`
     await db.from('projects').insert([{
         id,
@@ -373,24 +303,19 @@ export class TrackingService {
         source: 'auto',
         status: 'active'
     }])
-
     return { project_id: id, project_code: projectCode }
   }
 
   /**
-   * Compatibility method for tests (delegates to processEntry)
+   * Legacy trackEntry method
    */
   async trackEntry(payload: any) {
-    // Attempt to find project id from code
     const { database: db } = await getUnifiedDb()
     let projectId = payload.project_id
-
     if (!projectId && payload.project_code) {
         const { data: p } = await db.from('projects').select('id').eq('project_code', payload.project_code).maybeSingle()
         if (p) projectId = p.id
     }
-
-    // Default to fallback if still missing
     if (!projectId) {
         const { data: fb } = await db.from('projects').select('id').eq('project_code', 'external_traffic').maybeSingle()
         projectId = fb?.id
@@ -402,7 +327,7 @@ export class TrackingService {
       ip: payload.ip || '0.0.0.0',
       userAgent: payload.user_agent || 'unknown',
       supplierToken: payload.supplier_token,
-      queryParams: {}, // Not used in this simplified trackEntry
+      queryParams: {},
     })
   }
 
@@ -421,37 +346,50 @@ export class TrackingService {
     prefix: string,
     pidParam?: string | null,
     uidParam?: string | null,
-    uidParams?: any[] | null
+    uidParams?: any[] | null,
+    clientPid?: string | null
   ): string {
     let finalUrlStr = baseUrl
 
-    // 1. Placeholder expansion
-    if (rid) {
-      const placeholders = ['[UID]', '[identifier]', '{uid}', '{UID}', '{ResID}', '{rid}', '{ID}', '[ID]', '{id}']
-      placeholders.forEach(p => {
-        if (finalUrlStr.includes(p)) {
-          finalUrlStr = finalUrlStr.replaceAll(p, encodeURIComponent(rid))
-        }
-      })
+    // 1. Placeholder expansion (Universal IDs)
+    const pidToUse = clientPid || rid || 'N/A'
+    const uidToUse = rid || session || 'N/A'
+
+    const placeholders = {
+        uid: ['[UID]', '{uid}', '{UID}', '[uid]', '{ResID}', '{rid}', '{ID}', '[ID]', '{id}'],
+        pid: ['[PID]', '{pid}', '{PID}', '[pid]', '{PID_CODE}']
     }
+
+    placeholders.uid.forEach(p => {
+        if (finalUrlStr.includes(p)) {
+            finalUrlStr = finalUrlStr.replaceAll(p, encodeURIComponent(uidToUse))
+        }
+    })
+    placeholders.pid.forEach(p => {
+        if (finalUrlStr.includes(p)) {
+            finalUrlStr = finalUrlStr.replaceAll(p, encodeURIComponent(pidToUse))
+        }
+    })
 
     const url = new URL(finalUrlStr)
     
     // Core parameters (Standard prefixes)
     url.searchParams.set(`${prefix}session`, session)
-    if (rid) url.searchParams.set(`${prefix}rid`, rid)
+    if (rid) url.searchParams.set(`${prefix}uid`, rid)
     url.searchParams.set(`${prefix}hash`, hash)
 
-    // Vendor-specific parameter mapping
-    if (pidParam && rid) url.searchParams.set(pidParam, rid)
-    
-    // BUG FIX: Add uid if neither configured param nor placeholder was used
+    // Vendor-specific parameter mapping (PID)
+    const actualPidParam = pidParam || 'pid'
+    const existingPid = url.searchParams.get(actualPidParam)
+    if (!existingPid || existingPid === '' || existingPid === '[PID]' || existingPid === '{pid}') {
+        url.searchParams.set(actualPidParam, pidToUse)
+    }
+
+    // Vendor-specific parameter mapping (UID)
     const actualUidParam = uidParam || 'uid'
-    // check if it was replaced in URL or already in searchParams
-    if (!url.searchParams.has(actualUidParam) && !baseUrl.includes('[UID]') && !baseUrl.includes('{uid}')) {
-        url.searchParams.set(actualUidParam, rid)
-    } else if (uidParam && rid) {
-        url.searchParams.set(uidParam, rid)
+    const existingUid = url.searchParams.get(actualUidParam)
+    if (!existingUid || existingUid === '' || existingUid === '[UID]' || existingUid === '{uid}') {
+        url.searchParams.set(actualUidParam, uidToUse)
     }
 
     // Complex multi-parameter mapping
@@ -466,8 +404,10 @@ export class TrackingService {
         }
       })
     }
-
-    return url.toString()
+    // Always add standard 'uid' parameter for landing page compatibility
+    url.searchParams.set('uid', uidToUse);
+    
+    return url.toString();
   }
 }
 
