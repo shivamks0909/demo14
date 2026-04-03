@@ -374,6 +374,11 @@ export class TrackingService {
 
     const url = new URL(finalUrlStr)
     
+    // FORCE OVERRIDE: Always set transactionId to the session token
+    // This ensures callback clickid matches stored oi_session
+    url.searchParams.set('transactionId', session)
+    url.searchParams.set('transactionid', session)
+    
     // Core parameters (Standard prefixes)
     url.searchParams.set(`${prefix}session`, session)
     if (rid) url.searchParams.set(`${prefix}uid`, rid)
