@@ -13,9 +13,9 @@ export const runtime = 'nodejs'
  */
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ code: string; slug: string[] }> }
+  context: { params: Promise<{ code: string; slug?: string[] }> }
 ) {
-  const { code, slug } = await context.params
+  const { code, slug = [] } = await context.params
   const ip = getClientIp(request)
   const userAgent = request.headers.get('user-agent') || 'Unknown'
   const searchParams = request.nextUrl.searchParams
