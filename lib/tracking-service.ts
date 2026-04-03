@@ -357,7 +357,8 @@ export class TrackingService {
 
     const placeholders = {
         uid: ['[UID]', '{uid}', '{UID}', '[uid]', '{ResID}', '{rid}', '{ID}', '[ID]', '{id}'],
-        pid: ['[PID]', '{pid}', '{PID}', '[pid]', '{PID_CODE}']
+        pid: ['[PID]', '{pid}', '{PID}', '[pid]', '{PID_CODE}'],
+        sessionId: ['[SESSION_ID]', '{session_id}', '{oi_session}', '[TRANSACTION_ID]', '{transactionId}', '[TRANSACTIONID]']
     }
 
     placeholders.uid.forEach(p => {
