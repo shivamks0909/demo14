@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
             })
 
             return NextResponse.redirect(
-                new URL(`/status?code=${encodeURIComponent(pid || 'UNKNOWN')}&cid=${encodeURIComponent(cid)}&type=${encodeURIComponent(type)}`, request.url)
+                new URL(`/status?code=${encodeURIComponent(pid || 'UNKNOWN')}&uid=${encodeURIComponent(cid)}&cid=${encodeURIComponent(cid)}&type=${encodeURIComponent(type)}`, request.url)
             )
         }
 
@@ -368,7 +368,8 @@ export async function GET(request: NextRequest) {
 
         // 8. Redirect to /status page after successful update
         const projectCode = response.project_code || pid || ''
-        const statusUrl = `/status?code=${encodeURIComponent(projectCode)}&cid=${encodeURIComponent(cid)}&type=${encodeURIComponent(type)}`
+        const responseUid = response.uid || cid
+        const statusUrl = `/status?code=${encodeURIComponent(projectCode)}&uid=${encodeURIComponent(responseUid)}&cid=${encodeURIComponent(cid)}&type=${encodeURIComponent(type)}`
         
         console.log(`[Callback] Redirecting to: ${statusUrl}`)
         return NextResponse.redirect(new URL(statusUrl, request.url))
