@@ -3,16 +3,23 @@ import type { NextRequest } from 'next/server'
 // Admin routes that require authentication
 const ADMIN_ROUTES = ['/admin', '/api/admin']
 const LOGIN_ROUTE = '/login'
+// Supplier portal routes that require authentication
+const SUPPLIER_ROUTES = ['/supplier']
+const SUPPLIER_LOGIN_ROUTE = '/supplier/login'
 
 export async function proxy(request: NextRequest) {
     const pathname = request.nextUrl.pathname
 
     // Check if this is an admin route
     const isAdminRoute = ADMIN_ROUTES.some(route => pathname.startsWith(route))
+    // Check if this is a supplier portal route
+    const isSupplierRoute = SUPPLIER_ROUTES.some(route => pathname.startsWith(route))
 
-    // Skip middleware for login page and static assets
-    if (pathname === LOGIN_ROUTE || pathname.startsWith('/_next') || pathname.startsWith('/api/health')) {
-        return NextResponse.next()
+    // Skip middleware for login pages and static assets
+    if (pathname === LOGIN_ROUTE || pathname === SUPPLIER_LOGIN_ROUTE || pathname.startsWith('/_next') || pathname.startsWith('/api/health')) {
+        const response = NextResponse.next()
+        applySecurityHeaders(response, request)
+        return response
     }
 
     // If accessing admin route, check for session cookie
@@ -38,6 +45,31 @@ export async function proxy(request: NextRequest) {
         }
 
         // Defer deeper database validation to server components where Node.js APIs are available.
+    }
+
+    // If accessing supplier portal route, check for session cookie
+    if (isSupplierRoute) {
+        const supplierSession = request.cookies.get('supplier_session')
+
+        if (!supplierSession || !supplierSession.value) {
+            // No session found - redirect to supplier login
+            const loginUrl = new URL(SUPPLIER_LOGIN_ROUTE, request.url)
+            loginUrl.searchParams.set('redirect', pathname)
+            const response = NextResponse.redirect(loginUrl)
+            applySecurityHeaders(response, request)
+            return response
+        }
+
+        // Basic sanity check: prevent malformed sessions
+        if (supplierSession.value.length < 10) {
+            console.warn('[Middleware] Malformed supplier session cookie detected')
+            const response = NextResponse.redirect(new URL(SUPPLIER_LOGIN_ROUTE, request.url))
+            response.cookies.delete('supplier_session')
+            applySecurityHeaders(response, request)
+            return response
+        }
+
+        // Deeper validation is done in server components
     }
 
     const response = NextResponse.next()
@@ -96,3 +128,5 @@ export const config = {
         '/((?!_next/static|_next/image|favicon.ico).*)',
     ],
 }
+
+

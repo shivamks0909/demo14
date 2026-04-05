@@ -29,7 +29,7 @@ export default function BrandLogo({
 
     return (
         <Image
-            src="/logo.svg"
+            src="/opinion-insights-logo.png"
             alt={alt}
             width={120}
             height={40}

@@ -1,4 +1,5 @@
 import React, { Suspense } from 'react'
+import { cookies } from 'next/headers'
 import { Card, CardContent } from "../../components/ui/card"
 import { WavyOutcomeView } from '../../components/public/WavyOutcomeView'
 import { getUnifiedDb } from '../../lib/unified-db'
@@ -6,10 +7,13 @@ import { getUnifiedDb } from '../../lib/unified-db'
 export const dynamic = 'force-dynamic'
 export const runtime = "nodejs";
 
-async function StatusContent({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+async function StatusContent({ searchParams, cookies }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }>, cookies: Promise<{ get: (name: string) => { value: string } | undefined }> }) {
     const resolvedParams = await searchParams
+    const resolvedCookies = await cookies
     const type = typeof resolvedParams.type === 'string' ? resolvedParams.type : 'complete'
-    const clickid = typeof resolvedParams.clickid === 'string' ? resolvedParams.clickid : (typeof resolvedParams.cid === 'string' ? resolvedParams.cid : null)
+    // Read session ID from cookie (hidden from URL)
+    const sessionCookie = resolvedCookies.get('survey_session')
+    const clickid = sessionCookie?.value || null
     const urlUid = typeof resolvedParams.uid === 'string' ? resolvedParams.uid : null
     const urlCode = typeof resolvedParams.code === 'string' ? resolvedParams.code : (typeof resolvedParams.pid === 'string' ? resolvedParams.pid : null)
     
@@ -92,7 +96,7 @@ async function StatusContent({ searchParams }: { searchParams: Promise<{ [key: s
 export default function StatusPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
     return (
         <Suspense fallback={<div className="h-screen flex items-center justify-center text-white">Loading status...</div>}>
-            <StatusContent searchParams={searchParams} />
+            <StatusContent searchParams={searchParams} cookies={cookies()} />
         </Suspense>
     )
 }

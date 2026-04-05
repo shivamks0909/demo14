@@ -36,7 +36,6 @@ export class TrackingService {
         .from('projects')
         .select('*')
         .eq('id', ctx.projectId)
-        .is('deleted_at', null)
         .maybeSingle()
 
       if (pError || !project) return { success: false, errorType: 'PROJECT_NOT_FOUND' }
@@ -133,18 +132,54 @@ export class TrackingService {
         }
       }
 
-      // 6. Supplier Identification
+      // 6. Supplier Identification & Project Assignment Validation
       let supplierId: string | null = null
+      let supplierName: string | null = null
       if (ctx.supplierToken) {
+        // Resolve supplier by token (supports both supplier_token and login_email)
         const { data: supplier } = await db
           .from('suppliers')
-          .select('id, name')
-          .eq('supplier_token', ctx.supplierToken)
+          .select('id, name, login_email')
+          .or(`supplier_token.eq.${ctx.supplierToken},login_email.eq.${ctx.supplierToken}`)
           .eq('status', 'active')
           .maybeSingle()
 
         if (supplier) {
           supplierId = supplier.id
+          supplierName = supplier.name
+
+          // Validate supplier-project assignment exists
+          const { data: assignment } = await db
+            .from('supplier_project_links')
+            .select('id, quota_allocated, quota_used, status')
+            .eq('supplier_id', supplierId)
+            .eq('project_id', project.id)
+            .maybeSingle()
+
+          if (!assignment) {
+            await auditService.log({
+              event_type: 'entry_denied',
+              payload: { reason: 'supplier_not_assigned', project_id: project.id, supplier_id: supplierId, supplier_name: supplierName },
+              ip: ctx.ip,
+              user_agent: ctx.userAgent
+            })
+            return { success: false, errorType: 'UNAUTHORIZED', errorMessage: 'Supplier not assigned to this project.', error: 'Unauthorized supplier' }
+          }
+
+          if (assignment.status !== 'active') {
+            return { success: false, errorType: 'PROJECT_PAUSED', errorMessage: 'Supplier link is paused.', error: 'Link paused' }
+          }
+
+          // Check quota
+          if (assignment.quota_allocated > 0 && assignment.quota_used >= assignment.quota_allocated) {
+            await auditService.log({
+              event_type: 'quota_exceeded',
+              payload: { project_id: project.id, supplier_id: supplierId, quota_used: assignment.quota_used, quota_allocated: assignment.quota_allocated },
+              ip: ctx.ip,
+              user_agent: ctx.userAgent
+            })
+            return { success: false, errorType: 'QUOTA_FULL', errorMessage: 'Quota exceeded for this supplier.', error: 'Quota full' }
+          }
         }
       }
 
@@ -189,9 +224,9 @@ export class TrackingService {
         clientPid
       )
 
-      // 9. Atomic Quota Increment
+      // 9. Atomic Quota Increment (only if supplier is assigned)
       let quotaOk = true
-      if (ctx.supplierToken && supplierId) {
+      if (supplierId && ctx.supplierToken) {
         try {
           const { data: incrementSuccess, error: quotaError } = await db.rpc('increment_quota', {
             p_project_id: project.id,
@@ -211,10 +246,11 @@ export class TrackingService {
         return { success: false, errorType: 'QUOTA_FULL', errorMessage: 'Quota exceeded for this supplier.', error: 'Quota full' }
       }
 
-      // 10. Create Response Record
+      // 10. Create Response Record with supplier_id
        const { data: response, error: rError } = await db
          .from('responses')
-         .insert([{
+          .insert([{
+           id: `resp_${crypto.randomUUID()}`,
            project_id: project.id,
            project_code: project.project_code,
            project_name: project.project_name,
@@ -227,6 +263,7 @@ export class TrackingService {
            user_agent: ctx.userAgent,
            device_type: deviceType,
            supplier_uid: ctx.supplierToken,
+           supplier_id: supplierId,
            created_at: new Date().toISOString()
          }])
          .select()
@@ -242,6 +279,8 @@ export class TrackingService {
             response_id: response.id, 
             device: deviceType, 
             ip: ctx.ip,
+            supplier_id: supplierId,
+            supplier_name: supplierName,
             latency: Date.now() - start
         },
         ip: ctx.ip,
@@ -349,6 +388,10 @@ export class TrackingService {
     uidParams?: any[] | null,
     clientPid?: string | null
   ): string {
+    if (!baseUrl) {
+      console.error('[TrackingService] buildUrl called with undefined baseUrl')
+      return ''
+    }
     let finalUrlStr = baseUrl
 
     // 1. Placeholder expansion (Universal IDs)

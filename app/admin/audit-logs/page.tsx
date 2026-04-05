@@ -3,7 +3,11 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
-import { FileText } from 'lucide-react'
+import { FileText, RefreshCw, Download } from 'lucide-react'
+import ExportAuditLogsButton from '@/components/ExportAuditLogsButton'
+import PageHeader from '@/components/ui/PageHeader'
+import ActionCard from '@/components/ui/ActionCard'
+import StatusBadge from '@/components/ui/StatusBadge'
 
 interface AuditLog {
   id: string
@@ -20,6 +24,8 @@ export default function AuditLogsPage() {
   const [error, setError] = useState<string | null>(null)
   const [eventTypeFilter, setEventTypeFilter] = useState<string>('')
   const [limit, setLimit] = useState(100)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   const fetchLogs = async (type?: string) => {
     setLoading(true)
@@ -27,6 +33,8 @@ export default function AuditLogsPage() {
       const params = new URLSearchParams()
       params.set('limit', limit.toString())
       if (type) params.set('event_type', type)
+      if (dateFrom) params.set('date_from', dateFrom)
+      if (dateTo) params.set('date_to', dateTo)
 
       const res = await fetch(`/api/admin/audit-logs?${params.toString()}`)
       const data = await res.json()
@@ -46,7 +54,7 @@ export default function AuditLogsPage() {
 
   useEffect(() => {
     fetchLogs(eventTypeFilter || undefined)
-  }, [eventTypeFilter, limit])
+  }, [eventTypeFilter, limit, dateFrom, dateTo])
 
   const uniqueEventTypes = Array.from(new Set(logs.map(l => l.event_type)))
 
@@ -54,30 +62,43 @@ export default function AuditLogsPage() {
     return new Date(dateStr).toLocaleString()
   }
 
-  const renderPayload = (payload: Record<string, any>) => {
-    return (
-      <pre className="text-xs bg-gray-50 p-2 rounded overflow-auto max-w-lg">
-        {JSON.stringify(payload, null, 2)}
-      </pre>
-    )
+  const getEventTypeColor = (type: string) => {
+    const lower = type.toLowerCase()
+    if (lower.includes('error') || lower.includes('fail')) return 'error'
+    if (lower.includes('complete') || lower.includes('success')) return 'success'
+    if (lower.includes('warn')) return 'warning'
+    return 'info'
   }
 
   return (
     <div className="space-y-6">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Audit Logs</h1>
-        <p className="text-sm text-gray-500 mt-1">System-wide event tracking and forensic trail</p>
-      </div>
+      <PageHeader
+        title="Audit Logs"
+        description="System-wide event tracking and forensic trail"
+        actions={
+          <div className="flex items-center gap-2">
+            <ExportAuditLogsButton logs={logs} />
+            <button
+              onClick={() => fetchLogs(eventTypeFilter || undefined)}
+              disabled={loading}
+              className="btn-ghost flex items-center gap-1.5"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+        }
+      />
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Event Type</label>
+      <ActionCard title="Filters" description="Narrow down audit events">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex-1 min-w-[180px]">
+            <label className="block text-[11px] font-medium text-text-muted uppercase tracking-wide mb-1">Event Type</label>
             <select
               value={eventTypeFilter}
               onChange={(e) => setEventTypeFilter(e.target.value)}
-              className="w-full rounded-lg border-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="input-field w-full"
             >
               <option value="">All Events</option>
               {uniqueEventTypes.map(type => (
@@ -85,82 +106,99 @@ export default function AuditLogsPage() {
               ))}
             </select>
           </div>
-          <div className="w-32">
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Limit</label>
+          <div className="w-24">
+            <label className="block text-[11px] font-medium text-text-muted uppercase tracking-wide mb-1">Limit</label>
             <select
               value={limit}
               onChange={(e) => setLimit(Number(e.target.value))}
-              className="w-full rounded-lg border-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="input-field w-full"
             >
               <option value={50}>50</option>
               <option value={100}>100</option>
               <option value={500}>500</option>
             </select>
           </div>
-          <button
-            onClick={() => fetchLogs(eventTypeFilter || undefined)}
-            disabled={loading}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-          >
-            Refresh
-          </button>
+          <div className="w-36">
+            <label className="block text-[11px] font-medium text-text-muted uppercase tracking-wide mb-1">From</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="input-field w-full"
+            />
+          </div>
+          <div className="w-36">
+            <label className="block text-[11px] font-medium text-text-muted uppercase tracking-wide mb-1">To</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="input-field w-full"
+            />
+          </div>
         </div>
-      </div>
+      </ActionCard>
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{error}</p>
+        <div className="p-4 bg-error-soft border border-error-border rounded-2xl">
+          <p className="text-sm text-error">{error}</p>
         </div>
       )}
 
       {/* Logs Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <ActionCard
+        title="Event Log"
+        description={`${logs.length} events recorded`}
+      >
         {loading ? (
-          <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-            <p className="mt-2 text-sm text-gray-500">Loading audit logs...</p>
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+            <p className="mt-3 text-sm text-text-muted">Loading audit logs...</p>
           </div>
         ) : logs.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>No audit logs found</p>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-bg-subtle flex items-center justify-center mb-4">
+              <FileText className="h-6 w-6 text-text-muted" />
+            </div>
+            <p className="text-sm text-text-muted">No audit logs found</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="overflow-x-auto -mx-5">
+            <table className="table">
+              <thead>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Timestamp
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Event Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    IP Address
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Payload
-                  </th>
+                  <th>Timestamp</th>
+                  <th>Event Type</th>
+                  <th>IP Address</th>
+                  <th>User Agent</th>
+                  <th>Payload</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody>
                 {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <tr key={log.id}>
+                    <td className="text-sm text-text-muted whitespace-nowrap">
                       {formatDate(log.created_at)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                        {log.event_type}
-                      </span>
+                    <td>
+                      <StatusBadge status={getEventTypeColor(log.event_type)} variant="dot" />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
+                    <td className="text-sm font-mono text-text-secondary">
                       {log.ip || '-'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {renderPayload(log.payload)}
+                    <td className="text-xs text-text-muted max-w-[200px] truncate">
+                      {log.user_agent || '-'}
+                    </td>
+                    <td>
+                      <details className="group">
+                        <summary className="cursor-pointer text-xs text-primary hover:text-primary-dark transition-colors">
+                          View payload
+                        </summary>
+                        <pre className="mt-2 text-[10px] bg-bg-subtle p-3 rounded-xl overflow-auto max-w-md">
+                          {JSON.stringify(log.payload, null, 2)}
+                        </pre>
+                      </details>
                     </td>
                   </tr>
                 ))}
@@ -168,14 +206,7 @@ export default function AuditLogsPage() {
             </table>
           </div>
         )}
-      </div>
-
-      {/* Count */}
-      {!loading && logs.length > 0 && (
-        <div className="mt-4 text-sm text-gray-500">
-          Showing {logs.length} logs
-        </div>
-      )}
+      </ActionCard>
     </div>
   )
 }

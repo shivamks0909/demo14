@@ -1,58 +1,73 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { dashboardService } from '@/lib/dashboardService';
-
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-
-export async function GET() {
-  try {
-    const suppliers = await dashboardService.getSuppliers();
-    return NextResponse.json({ success: true, data: suppliers || [] });
-  } catch (error: any) {
-    console.error('[Admin Suppliers GET] Error:', error);
-    return NextResponse.json({ success: false, error: error?.message || 'Failed to fetch suppliers' }, { status: 500 });
-  }
-}
+import { NextRequest, NextResponse } from 'next/server'
+import { getDb } from '@/lib/db'
+import { hashPassword } from '@/lib/supplier-auth'
+import * as crypto from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { data, error } = await dashboardService.createSupplier(body);
-    
-    if (error) throw error;
-    return NextResponse.json({ success: true, data });
-  } catch (error: any) {
-    console.error('[Admin Suppliers POST] Error:', error);
-    return NextResponse.json({ success: false, error: error?.message || 'Failed to create supplier' }, { status: 500 });
+    const body = await request.json()
+    const { name, login_email, password } = body
+
+    if (!name || !login_email || !password) {
+      return NextResponse.json(
+        { error: 'Name, email, and password are required' },
+        { status: 400 }
+      )
+    }
+
+    const db = getDb()
+
+    // Check if email already exists
+    const existing = db.prepare(`
+      SELECT id FROM suppliers WHERE login_email = ?
+    `).get(login_email)
+
+    if (existing) {
+      return NextResponse.json(
+        { error: 'Email already in use' },
+        { status: 409 }
+      )
+    }
+
+    const passwordHash = await hashPassword(password)
+    const id = `sup_${crypto.randomUUID()}`
+    const now = new Date().toISOString()
+
+    db.prepare(`
+      INSERT INTO suppliers (id, name, login_email, password_hash, status, created_at)
+      VALUES (?, ?, ?, ?, 'active', ?)
+    `).run(id, name, login_email, passwordHash, now)
+
+    const supplier = db.prepare(`
+      SELECT id, name, login_email, status, created_at
+      FROM suppliers WHERE id = ?
+    `).get(id)
+
+    return NextResponse.json({ supplier, password }, { status: 201 })
+  } catch (error) {
+    console.error('[Admin Create Supplier] Error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function GET() {
   try {
-    const body = await request.json();
-    const { id, ...updates } = body;
-    if (!id) return NextResponse.json({ success: false, error: 'Missing id' }, { status: 400 });
-    
-    const { error } = await dashboardService.updateSupplier(id, updates);
-    if (error) throw error;
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('[Admin Suppliers PATCH] Error:', error);
-    return NextResponse.json({ success: false, error: error?.message || 'Failed to update supplier' }, { status: 500 });
-  }
-}
+    const db = getDb()
+    const suppliers = db.prepare(`
+      SELECT id, name, login_email, status, last_login, created_at
+      FROM suppliers
+      ORDER BY created_at DESC
+    `).all()
 
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-    if (!id) return NextResponse.json({ success: false, error: 'Missing id' }, { status: 400 });
-    
-    const { error } = await dashboardService.deleteSupplier(id);
-    if (error) throw error;
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('[Admin Suppliers DELETE] Error:', error);
-    return NextResponse.json({ success: false, error: error?.message || 'Failed to delete supplier' }, { status: 500 });
+    return NextResponse.json({ suppliers })
+  } catch (error) {
+    console.error('[Admin List Suppliers] Error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }

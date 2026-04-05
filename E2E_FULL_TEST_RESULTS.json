@@ -1,0 +1,521 @@
+{
+  "date": "2026-04-05T08:44:30.019Z",
+  "duration_ms": 42246,
+  "total": 85,
+  "passed": 85,
+  "failed": 0,
+  "warnings": 0,
+  "pass_rate": "100.0",
+  "results": [
+    {
+      "phase": "1.1",
+      "test": "Health endpoint responds",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "1.1",
+      "test": "Health reports success",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "phase": "1.1",
+      "test": "Health reports DB source",
+      "status": "PASS",
+      "detail": "Source: cloud"
+    },
+    {
+      "phase": "1.1",
+      "test": "Health reports latency",
+      "status": "PASS",
+      "detail": "284ms"
+    },
+    {
+      "phase": "1.2",
+      "test": "Login page loads",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "1.2",
+      "test": "Landing page loads",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "1.3",
+      "test": "Error page /paused",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "1.3",
+      "test": "Error page /duplicate-string",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "1.3",
+      "test": "Error page /quotafull",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "1.3",
+      "test": "Error page /security-terminate",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "1.3",
+      "test": "Error page /complete",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "1.3",
+      "test": "Error page /terminate",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "1.3",
+      "test": "Error page /country-unavailable",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "1.3",
+      "test": "Error page /duplicate-ip",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "2.1",
+      "test": "Login page loads",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "phase": "2.2",
+      "test": "Login endpoint responds",
+      "status": "PASS",
+      "detail": "Status: 404"
+    },
+    {
+      "phase": "2.3",
+      "test": "Invalid login handled",
+      "status": "PASS",
+      "detail": "Status: 404"
+    },
+    {
+      "phase": "2.4",
+      "test": "Admin routes protected",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "2.5",
+      "test": "Supplier login page loads",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "3",
+      "test": "Admin page /admin/dashboard",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "3",
+      "test": "Admin page /admin/projects",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "3",
+      "test": "Admin page /admin/responses",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "3",
+      "test": "Admin page /admin/suppliers",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "3",
+      "test": "Admin page /admin/clients",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "3",
+      "test": "Admin page /admin/audit-logs",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "3",
+      "test": "Admin page /admin/settings",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "3",
+      "test": "Admin page /admin/redirects",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "4.1",
+      "test": "Projects API responds",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "4.2",
+      "test": "Single project API responds",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "4.3",
+      "test": "Create project endpoint",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "5.1",
+      "test": "Suppliers API responds",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "5.2",
+      "test": "Create supplier endpoint",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "6.1",
+      "test": "Routing URL format accepted",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "6.2",
+      "test": "Legacy track URL format",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "6.3",
+      "test": "Start URL format",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "7.1",
+      "test": "Track link processes request",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "7.2",
+      "test": "Track returns redirect or response",
+      "status": "PASS",
+      "detail": "Redirect to: http://localhost:3000/paused?title=SERVER_ERROR&uid=TESTUSER123"
+    },
+    {
+      "phase": "7.3",
+      "test": "Status endpoint responds",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "7.4",
+      "test": "Prescreener endpoint",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "8.1",
+      "test": "Complete callback endpoint",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "8.2",
+      "test": "Terminate callback endpoint",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "8.3",
+      "test": "Quota callback endpoint",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "8.4",
+      "test": "Security terminate callback",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "8.5",
+      "test": "Path-based callback",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "8.6",
+      "test": "Idempotent callback (repeat)",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "9.1",
+      "test": "S2S callback endpoint responds",
+      "status": "PASS",
+      "detail": "Status: 400"
+    },
+    {
+      "phase": "9.2",
+      "test": "S2S rejects invalid data",
+      "status": "PASS",
+      "detail": "Rejected: 400"
+    },
+    {
+      "phase": "9.3",
+      "test": "Test callback endpoint",
+      "status": "PASS",
+      "detail": "Status: 405"
+    },
+    {
+      "phase": "10.1",
+      "test": "Invalid project handled",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "10.2",
+      "test": "Missing params handled",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "10.3",
+      "test": "Invalid callback type handled",
+      "status": "PASS",
+      "detail": "Status: 400"
+    },
+    {
+      "phase": "10.4",
+      "test": "Respondent stats lookup",
+      "status": "PASS",
+      "detail": "Status: 400"
+    },
+    {
+      "phase": "11.1",
+      "test": "Responses API responds",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "11.2",
+      "test": "Responses export endpoint",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "11.3",
+      "test": "Supplier responses API",
+      "status": "PASS",
+      "detail": "Status: 401"
+    },
+    {
+      "phase": "12.1",
+      "test": "Audit logs API responds",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "12.2",
+      "test": "Audit logs with filters",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "13.1",
+      "test": "Step 1: Track request",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "13.2",
+      "test": "Step 2: Callback after track",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "13.3",
+      "test": "Step 3: System healthy after workflow",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "13.4",
+      "test": "Mock init endpoint",
+      "status": "PASS",
+      "detail": "Status: 405"
+    },
+    {
+      "phase": "13.5",
+      "test": "Custom init endpoint",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "14.1",
+      "test": "Empty project code handled",
+      "status": "PASS",
+      "detail": "Status: 308"
+    },
+    {
+      "phase": "14.2",
+      "test": "Special chars in UID handled",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "14.3",
+      "test": "Very long UID handled",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "14.4",
+      "test": "Malformed callback URL handled",
+      "status": "PASS",
+      "detail": "Status: 400"
+    },
+    {
+      "phase": "14.5",
+      "test": "Non-existent API route",
+      "status": "PASS",
+      "detail": "Status: 404"
+    },
+    {
+      "phase": "14.6",
+      "test": "Non-existent page",
+      "status": "PASS",
+      "detail": "Status: 404"
+    },
+    {
+      "phase": "15.1",
+      "test": "Supplier dashboard API",
+      "status": "PASS",
+      "detail": "Status: 401"
+    },
+    {
+      "phase": "15.2",
+      "test": "Supplier login API",
+      "status": "PASS",
+      "detail": "Status: 401"
+    },
+    {
+      "phase": "15.3",
+      "test": "Supplier me API",
+      "status": "PASS",
+      "detail": "Status: 401"
+    },
+    {
+      "phase": "15.4",
+      "test": "Supplier projects API",
+      "status": "PASS",
+      "detail": "Status: 401"
+    },
+    {
+      "phase": "15.5",
+      "test": "Supplier reports page",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "15.6",
+      "test": "Supplier logout API",
+      "status": "PASS",
+      "detail": "Status: 200"
+    },
+    {
+      "phase": "15.7",
+      "test": "Supplier report export",
+      "status": "PASS",
+      "detail": "Status: 401"
+    },
+    {
+      "phase": "16.1",
+      "test": "10 concurrent health checks",
+      "status": "PASS",
+      "detail": "1201ms, 10/10 OK"
+    },
+    {
+      "phase": "16.2",
+      "test": "5 sequential routing requests",
+      "status": "PASS",
+      "detail": "6551ms"
+    },
+    {
+      "phase": "16.3",
+      "test": "Single request response time",
+      "status": "PASS",
+      "detail": "299ms"
+    },
+    {
+      "phase": "17.1",
+      "test": "SQL injection attempt handled",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "17.2",
+      "test": "XSS attempt handled",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "17.3",
+      "test": "Path traversal attempt handled",
+      "status": "PASS",
+      "detail": "Status: 404"
+    },
+    {
+      "phase": "17.4",
+      "test": "Admin API without auth",
+      "status": "PASS",
+      "detail": "Status: 307"
+    },
+    {
+      "phase": "17.5",
+      "test": "X-Content-Type-Options header",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "phase": "17.6",
+      "test": "Test track endpoint",
+      "status": "PASS",
+      "detail": "Status: 405"
+    },
+    {
+      "phase": "17.7",
+      "test": "Test direct endpoint",
+      "status": "PASS",
+      "detail": "Status: 200"
+    }
+  ]
+}

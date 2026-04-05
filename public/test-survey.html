@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survey Platform - Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        .container {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+        }
+        h1 { font-size: 2rem; margin-bottom: 10px; }
+        .subtitle { color: #a0a0c0; margin-bottom: 30px; }
+        .info-box {
+            background: rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+        .info-box label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .info-box .value {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: #7dd3fc;
+            word-break: break-all;
+        }
+        .timer {
+            font-size: 3rem;
+            font-weight: 700;
+            margin: 20px 0;
+            background: linear-gradient(90deg, #7dd3fc, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .progress-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #7dd3fc, #a78bfa);
+            width: 0%;
+            transition: width 1s linear;
+        }
+        .btn {
+            display: inline-block;
+            padding: 14px 40px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+        .btn-complete {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+        .btn-complete:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(16,185,129,0.3); }
+        .btn-complete:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .btn-terminate {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            margin-left: 10px;
+        }
+        .btn-terminate:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(239,68,68,0.3); }
+        .status {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+        .status.waiting { background: rgba(251,191,36,0.15); color: #fbbf24; }
+        .status.ready { background: rgba(16,185,129,0.15); color: #10b981; }
+        .status.error { background: rgba(239,68,68,0.15); color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Survey Platform</h1>
+        <p class="subtitle">Simulated Survey Environment for Testing</p>
+
+        <div class="info-box">
+            <label>Session ID (oi_session)</label>
+            <div class="value" id="sessionId">Loading...</div>
+        </div>
+
+        <div class="info-box">
+            <label>Callback URL</label>
+            <div class="value" id="callbackUrl">Loading...</div>
+        </div>
+
+        <div class="timer" id="timer">0s</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="status waiting" id="status">
+            ⏳ Wait minimum 30 seconds to pass fraud detection...
+        </div>
+
+        <div style="margin-top: 25px;">
+            <button class="btn btn-complete" id="btnComplete" disabled onclick="sendCallback('complete')">
+                ✅ Complete Survey
+            </button>
+            <button class="btn btn-terminate" onclick="sendCallback('terminate')">
+                ❌ Terminate
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Extract params from URL
+        const params = new URLSearchParams(window.location.search);
+        let sessionId = params.get('session');
+        let projectCode = params.get('code') || 'PROJ001';
+        let callbackBaseUrl = params.get('callback') || window.location.origin;
+
+        // If no session, generate one
+        if (!sessionId) {
+            sessionId = 'test_' + crypto.randomUUID();
+        }
+
+        const callbackUrl = `${callbackBaseUrl}/api/callback?pid=${projectCode}&cid=${sessionId}&type=`;
+
+        document.getElementById('sessionId').textContent = sessionId;
+        document.getElementById('callbackUrl').textContent = callbackUrl + '[complete/terminate]';
+
+        // Timer
+        let seconds = 0;
+        const timerEl = document.getElementById('timer');
+        const progressEl = document.getElementById('progressFill');
+        const statusEl = document.getElementById('status');
+        const btnComplete = document.getElementById('btnComplete');
+        const MIN_TIME = 30;
+
+        const timerInterval = setInterval(() => {
+            seconds++;
+            timerEl.textContent = seconds + 's';
+            progressEl.style.width = Math.min((seconds / MIN_TIME) * 100, 100) + '%';
+
+            if (seconds >= MIN_TIME) {
+                clearInterval(timerInterval);
+                statusEl.className = 'status ready';
+                statusEl.textContent = '✅ Fraud check passed! You can now submit.';
+                btnComplete.disabled = false;
+            }
+        }, 1000);
+
+        async function sendCallback(type) {
+            statusEl.className = 'status waiting';
+            statusEl.textContent = '🔄 Sending callback...';
+
+            try {
+                const response = await fetch(callbackUrl + type, {
+                    method: 'GET',
+                    redirect: 'manual'
+                });
+
+                if (response.status === 307 || response.status === 302) {
+                    const location = response.headers.get('location');
+                    statusEl.className = 'status ready';
+                    statusEl.textContent = `✅ Callback sent! Redirecting to status page...`;
+                    
+                    setTimeout(() => {
+                        window.location.href = location || `/status?code=${projectCode}&type=${type}`;
+                    }, 1500);
+                } else {
+                    const data = await response.json().catch(() => null);
+                    statusEl.className = 'status error';
+                    statusEl.textContent = `❌ Error: ${data?.error || 'Unknown error'}`;
+                }
+            } catch (error) {
+                statusEl.className = 'status error';
+                statusEl.textContent = `❌ Network error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -138,6 +138,16 @@ export const dashboardService = {
         }
     },
 
+    async updateClient(id: string, name: string): Promise<{ error: any }> {
+        const db = getDb()
+        try {
+            db.prepare('UPDATE clients SET name = ? WHERE id = ?').run(name, id)
+            return { error: null }
+        } catch (error: any) {
+            return { error: { message: error.message } }
+        }
+    },
+
     async getProjects(): Promise<any[]> {
         const db = getDb()
         ensureProjectColumns(db)
@@ -194,6 +204,16 @@ export const dashboardService = {
             completes_today: p.completes_today || 0,
             conversion_rate: p.clicks_today > 0 ? Math.round((p.completes_today / p.clicks_today) * 100) : 0
         }))
+    },
+
+    async flushResponses(): Promise<{ error: any }> {
+        const db = getDb()
+        try {
+            db.prepare('DELETE FROM responses').run()
+            return { error: null }
+        } catch (error: any) {
+            return { error: { message: error.message } }
+        }
     },
 
     async getProjectById(id: string): Promise<any | null> {

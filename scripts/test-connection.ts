@@ -4,16 +4,9 @@ async function test() {
   try {
     const { source, database } = await getUnifiedDb();
 
-    if (source === 'insforge') {
-      // Test InsForge connection with simple query
-      // @ts-ignore - InsForge database has query method
-      const result = await database.query('SELECT 1 as test');
-      console.log('✅ Database connection successful (InsForge):', result);
-    } else {
-      // Test SQLite connection by querying sqlite_master
-      const result = await database.from('sqlite_master').select('*').maybeSingle();
-      console.log('✅ Database connection successful (SQLite):', result);
-    }
+    // Test cloud database connection
+    const result = await database.from('projects').select('id').limit(1);
+    console.log('✅ Database connection successful:', result);
 
     console.log(`Connected to: ${source}`);
     process.exit(0);

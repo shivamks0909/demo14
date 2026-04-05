@@ -115,6 +115,85 @@ function initializeSchema(db: Database.Database) {
     )
   `)
 
+  // Admins table for local authentication
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admins (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      name TEXT,
+      role TEXT NOT NULL DEFAULT 'admin',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+
+  // Migrate admins table if email column is missing
+  const adminColumns = db.pragma('table_info(admins)')
+  const adminColNames = (adminColumns as any[]).map(col => col.name)
+  if (!adminColNames.includes('email')) {
+    db.exec(`ALTER TABLE admins ADD COLUMN email TEXT NOT NULL DEFAULT ''`)
+    db.exec(`ALTER TABLE admins ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'`)
+    console.log('[DB] Migrated admins table with email and role columns')
+  }
+
+  // Create default admin if not exists
+  try {
+    const existingAdmin = db.prepare(`SELECT id FROM admins WHERE email = ?`).get('admin@opinioninsights.in')
+    if (!existingAdmin) {
+      const bcrypt = require('bcryptjs')
+      const hashedPassword = bcrypt.hashSync('admin123', 10)
+      db.prepare(`INSERT INTO admins (id, email, password, name, role) VALUES (?, ?, ?, ?, ?)`).run(
+        `admin_${Date.now()}`,
+        'admin@opinioninsights.in',
+        hashedPassword,
+        'Admin',
+        'admin'
+      )
+      console.log('[DB] Created default admin user: admin@opinioninsights.in')
+    }
+  } catch (error) {
+    console.error('[DB] Error creating default admin:', error)
+  }
+
+  // Admins table for local authentication
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admins (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      name TEXT,
+      role TEXT NOT NULL DEFAULT 'admin',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+  // Migrate admins table if email column is missing (second block)
+  const adminColumns2 = db.pragma('table_info(admins)')
+  const adminColNames2 = (adminColumns2 as any[]).map(col => col.name)
+  if (!adminColNames2.includes('email')) {
+    db.exec(`ALTER TABLE admins ADD COLUMN email TEXT NOT NULL DEFAULT ''`)
+    db.exec(`ALTER TABLE admins ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'`)
+    console.log('[DB] Migrated admins table with email and role columns (second block)')
+  }
+
+  // Create default admin if not exists
+  try {
+    const existingAdmin = db.prepare(`SELECT id FROM admins WHERE email = ?`).get('admin@opinioninsights.in')
+    if (!existingAdmin) {
+      const bcrypt = require('bcryptjs')
+      const hashedPassword = bcrypt.hashSync('admin123', 10)
+      db.prepare(`INSERT INTO admins (id, email, password, name, role) VALUES (?, ?, ?, ?, ?)`).run(
+        `admin_${Date.now()}`,
+        'admin@opinioninsights.in',
+        hashedPassword,
+        'Admin',
+        'admin'
+      )
+      console.log('[DB] Created default admin user: admin@opinioninsights.in')
+    }
+  } catch (error) {
+    console.error('[DB] Error creating default admin:', error)
+  }
+
   // Suppliers table
   db.exec(`
     CREATE TABLE IF NOT EXISTS suppliers (
@@ -122,6 +201,8 @@ function initializeSchema(db: Database.Database) {
       name TEXT NOT NULL,
       supplier_token TEXT NOT NULL UNIQUE,
       contact_email TEXT,
+      login_email TEXT UNIQUE,
+      password_hash TEXT,
       platform_type TEXT,
       uid_macro TEXT,
       complete_redirect_url TEXT,
@@ -129,8 +210,37 @@ function initializeSchema(db: Database.Database) {
       quotafull_redirect_url TEXT,
       notes TEXT,
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused')),
+      last_login TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
+  `)
+
+  // Migrate suppliers table if login_email column is missing
+  const supplierColumns = db.pragma('table_info(suppliers)')
+  const supplierColNames = (supplierColumns as any[]).map(col => col.name)
+  if (!supplierColNames.includes('login_email')) {
+    db.exec(`ALTER TABLE suppliers ADD COLUMN login_email TEXT UNIQUE`)
+    db.exec(`ALTER TABLE suppliers ADD COLUMN password_hash TEXT`)
+    db.exec(`ALTER TABLE suppliers ADD COLUMN last_login TEXT`)
+    console.log('[DB] Migrated suppliers table with login_email, password_hash, last_login columns')
+  }
+
+  // Supplier sessions table for portal authentication
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS supplier_sessions (
+      id TEXT PRIMARY KEY,
+      supplier_id TEXT NOT NULL,
+      token TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
+    )
+  `)
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_supplier_sessions_token ON supplier_sessions(token);
+    CREATE INDEX IF NOT EXISTS idx_supplier_sessions_supplier ON supplier_sessions(supplier_id);
+    CREATE INDEX IF NOT EXISTS idx_supplier_sessions_expires ON supplier_sessions(expires_at);
   `)
 
   // Check and add new columns to responses if they don't exist
@@ -140,6 +250,9 @@ function initializeSchema(db: Database.Database) {
   // Core columns that should exist but may need migration
   const missingColumns: string[] = []
 
+  if (!columnNames.includes('supplier_id')) {
+    missingColumns.push('supplier_id TEXT')
+  }
   if (!columnNames.includes('project_name')) {
     missingColumns.push('project_name TEXT')
   }

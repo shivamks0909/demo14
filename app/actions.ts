@@ -77,6 +77,18 @@ export async function deleteClientAction(id: string): Promise<{ error: any }> {
     }
 }
 
+export async function updateClientAction(id: string, name: string): Promise<{ error: any }> {
+    try {
+        const local = await import('@/lib/local-dashboardService')
+        const result = await local.dashboardService.updateClient(id, name)
+        revalidatePath('/admin/clients')
+        revalidatePath('/admin/projects')
+        return result
+    } catch (error) {
+        return { error }
+    }
+}
+
 // Response Actions
 export async function flushResponsesAction(): Promise<{ success: boolean; error: any }> {
     try {

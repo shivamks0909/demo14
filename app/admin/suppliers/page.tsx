@@ -1,5 +1,9 @@
 import { dashboardService } from '@/lib/dashboardService'
 import SupplierManager from '@/components/SupplierManager'
+import ExportSuppliersButton from '@/components/ExportSuppliersButton'
+import PageHeader from '@/components/ui/PageHeader'
+import ActionCard from '@/components/ui/ActionCard'
+import { Truck } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,23 +15,26 @@ export default async function AdminSuppliersPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tight">
-                        Supplier Management
-                    </h1>
-                    <p className="text-slate-500 mt-2 font-medium">
-                        Add suppliers, configure their redirect URLs, and link them to projects.
-                    </p>
-                </div>
-                <div className="px-4 py-2 bg-violet-50 text-violet-600 rounded-2xl border border-violet-100 flex items-center shadow-sm mt-4 sm:mt-0">
-                    <div className="w-2 h-2 bg-violet-500 rounded-full animate-pulse mr-2" />
-                    <span className="text-[11px] font-black uppercase tracking-widest">
-                        {suppliers.length} Suppliers
-                    </span>
-                </div>
-            </div>
-            <SupplierManager suppliers={suppliers} projects={projects} />
+            <PageHeader
+                title="Suppliers"
+                description="Manage traffic suppliers and performance"
+                actions={
+                    <div className="flex items-center gap-3">
+                        <ExportSuppliersButton suppliers={suppliers} />
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-primary-soft border border-primary-border rounded-xl">
+                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                            <span className="text-xs font-medium text-primary">{suppliers.length} Suppliers</span>
+                        </div>
+                    </div>
+                }
+            />
+
+            <ActionCard
+                title="Supplier Management"
+                description="Configure redirect URLs and link suppliers to projects"
+            >
+                <SupplierManager suppliers={suppliers} projects={projects} />
+            </ActionCard>
         </div>
     )
 }

@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "OpinionInsights | Enterprise Survey Solutions",
+  title: "Opinion insights | Enterprise Survey Solutions",
   description: "Advanced tracking and redirection platform for market research.",
 };
 

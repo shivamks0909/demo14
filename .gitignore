@@ -59,3 +59,5 @@ build_error_cmd2.log
 build_new.log
 dev_server.log
 dev_server_local.log
+
+.vercel

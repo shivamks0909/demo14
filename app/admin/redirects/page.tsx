@@ -1,5 +1,8 @@
 import { dashboardService } from '@/lib/dashboardService'
 import RedirectCenter from '@/components/RedirectCenter'
+import PageHeader from '@/components/ui/PageHeader'
+import ActionCard from '@/components/ui/ActionCard'
+import { Link2 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,16 +11,17 @@ export default async function AdminRedirectsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-semibold text-gray-900 font-inter">Redirect Management</h1>
-                    <p className="text-sm text-gray-400 font-inter mt-1">Unified routing links for all active projects</p>
-                </div>
-            </div>
+            <PageHeader
+                title="Redirects"
+                description="Configure survey redirect URLs and postback configurations"
+            />
 
-            <div className="bg-slate-50/50 rounded-3xl p-8 border border-slate-100">
+            <ActionCard
+                title="Redirect Registry"
+                description="Unified routing links for all active projects"
+            >
                 <RedirectCenter projects={projects} />
-            </div>
+            </ActionCard>
         </div>
     )
 }

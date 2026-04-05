@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUnifiedDb } from '../../../lib/unified-db'
 import { getClientIp } from '../../../lib/getClientIp'
-import crypto from 'crypto'
+import { createLazySession } from '../../../lib/lazy-session'
+import * as crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -63,9 +64,10 @@ export async function GET(request: NextRequest) {
     const userAgent = request.headers.get('user-agent') || 'Unknown'
 
     // Extract params — support legacy TeamExploreSearch (code, uid) & new (pid, cid, clickid) formats
+    // ALSO support 'session' parameter for S2S postback URLs
     const searchParams = request.nextUrl.searchParams
-    const pid = searchParams.get('pid') || searchParams.get('code')
-    const cid = searchParams.get('cid') || searchParams.get('clickid') || searchParams.get('uid')
+    const pid = searchParams.get('pid') || searchParams.get('code') || searchParams.get('project')
+    const cid = searchParams.get('cid') || searchParams.get('clickid') || searchParams.get('uid') || searchParams.get('session') || searchParams.get('sid') || searchParams.get('transactionId') || searchParams.get('transactionid')
     const type = searchParams.get('type') || searchParams.get('status')
     const sig = searchParams.get('sig')
 
@@ -196,25 +198,65 @@ export async function GET(request: NextRequest) {
         console.log(`[Callback] DB Lookup Result:`, response ? `Found (id=${response.id}, status=${response.status})` : 'NOT FOUND')
 
         if (lookupError || !response) {
-            console.error(`[Callback] Response not found for CID=${cid}, PID=${pid}. Error:`, lookupError)
-            // Response not found - log and return error
-            await logCallback({
-                project_code: pid,
+            console.log(`[Callback] Response not found for CID=${cid}, PID=${pid}. Attempting lazy session creation...`)
+            
+            // LAZY SESSION CREATION - Direct URL tracking mode
+            const lazyResult = await createLazySession({
                 clickid: cid,
-                type,
-                status_mapped: internalStatus,
-                response_code: 404,
-                success: false,
-                error_message: 'Response not found',
-                raw_query: rawQuery,
-                ip_address: ip,
-                user_agent: userAgent,
-                latency_ms: Date.now() - startTime
+                type: internalStatus,
+                ip: ip,
+                userAgent: userAgent,
+                projectCode: pid || undefined,
             })
 
-            return NextResponse.redirect(
-                new URL(`/status?code=${encodeURIComponent(pid || 'UNKNOWN')}&uid=${encodeURIComponent(cid)}&cid=${encodeURIComponent(cid)}&type=${encodeURIComponent(type)}`, request.url)
-            )
+            if (lazyResult.success) {
+                console.log(`[Callback] Lazy session created: ${lazyResult.sessionId}`)
+                
+                await logCallback({
+                    project_code: pid,
+                    clickid: cid,
+                    type,
+                    status_mapped: internalStatus,
+                    response_code: 200,
+                    success: true,
+                    error_message: 'Lazy session created',
+                    raw_query: rawQuery,
+                    ip_address: ip,
+                    user_agent: userAgent,
+                    latency_ms: Date.now() - startTime
+                })
+
+                const statusUrl = `/status?type=${encodeURIComponent(type)}`
+                const redirectResponse = NextResponse.redirect(new URL(statusUrl, request.url))
+                redirectResponse.cookies.set('survey_session', cid, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'lax',
+                    maxAge: 3600,
+                    path: '/'
+                })
+                return redirectResponse
+            } else {
+                console.log(`[Callback] Lazy session creation failed: ${lazyResult.error}`)
+                
+                await logCallback({
+                    project_code: pid,
+                    clickid: cid,
+                    type,
+                    status_mapped: internalStatus,
+                    response_code: 404,
+                    success: false,
+                    error_message: `Response not found and lazy creation failed: ${lazyResult.error}`,
+                    raw_query: rawQuery,
+                    ip_address: ip,
+                    user_agent: userAgent,
+                    latency_ms: Date.now() - startTime
+                })
+
+                return NextResponse.redirect(
+                    new URL(`/status?code=${encodeURIComponent(pid || 'UNKNOWN')}&type=${encodeURIComponent(type)}`, request.url)
+                )
+            }
         }
 
         // 2. HMAC Signature Verification - OPTIONAL (only if S2S config exists)
@@ -295,7 +337,103 @@ export async function GET(request: NextRequest) {
             console.log(`[Callback] No S2S config for project ${response.project_code} — allowing unsigned callback`)
         }
 
-        // 5. Check if already terminal (idempotent)
+        // 5. FRAUD DETECTION CHECKS
+        const fraudChecks = {
+            passed: true,
+            flags: [] as string[]
+        }
+
+        // 5a. Minimum completion time check (prevent instant completes)
+        const createdAt = new Date(response.created_at || Date.now()).getTime()
+        const timeElapsed = (Date.now() - createdAt) / 1000 // seconds
+        const MIN_SURVEY_TIME = 30 // Minimum 30 seconds for a valid survey
+        if (timeElapsed < MIN_SURVEY_TIME && internalStatus === 'complete') {
+            fraudChecks.passed = false
+            fraudChecks.flags.push(`too_fast: ${Math.round(timeElapsed)}s (min: ${MIN_SURVEY_TIME}s)`)
+            console.warn(`[Callback] FRAUD: Suspiciously fast completion for response ${response.id} (${Math.round(timeElapsed)}s)`)
+        }
+
+        // 5b. IP validation - check if callback comes from expected survey platform IPs
+        // (Optional: configure allowed IPs in project settings)
+        const { data: projectConfig } = await db
+            .from('projects')
+            .select('allowed_callback_ips')
+            .eq('project_code', response.project_code)
+            .maybeSingle()
+        
+        if (projectConfig?.allowed_callback_ips) {
+            try {
+                const allowedIPs = JSON.parse(projectConfig.allowed_callback_ips)
+                if (Array.isArray(allowedIPs) && allowedIPs.length > 0) {
+                    if (!allowedIPs.includes(ip)) {
+                        fraudChecks.passed = false
+                        fraudChecks.flags.push(`unauthorized_ip: ${ip}`)
+                        console.warn(`[Callback] FRAUD: Unauthorized IP ${ip} for project ${response.project_code}`)
+                    }
+                }
+            } catch (e) {
+                // Invalid JSON in config, skip IP check
+            }
+        }
+
+        // 5c. Rate limiting - max 3 callbacks per session per minute
+        const oneMinuteAgo = new Date(Date.now() - 60000).toISOString()
+        const { data: recentCallbacks } = await db
+            .from('callback_logs')
+            .select('id')
+            .eq('clickid', cid)
+            .gte('created_at', oneMinuteAgo)
+        
+        if (recentCallbacks && recentCallbacks.length >= 3) {
+            fraudChecks.passed = false
+            fraudChecks.flags.push(`rate_limited: ${recentCallbacks.length} callbacks in last minute`)
+            console.warn(`[Callback] FRAUD: Rate limit exceeded for ${cid} (${recentCallbacks.length} in 1min)`)
+        }
+
+        // 5d. Check for impossible state transitions
+        const validTransitions: Record<string, string[]> = {
+            'in_progress': ['complete', 'terminate', 'quota_full', 'security_terminate'],
+            'started': ['complete', 'terminate', 'quota_full', 'security_terminate'],
+        }
+        const allowedNextStates = validTransitions[response.status]
+        if (allowedNextStates && !allowedNextStates.includes(internalStatus)) {
+            fraudChecks.passed = false
+            fraudChecks.flags.push(`invalid_transition: ${response.status} → ${internalStatus}`)
+            console.warn(`[Callback] FRAUD: Invalid state transition for response ${response.id}: ${response.status} → ${internalStatus}`)
+        }
+
+        // Log fraud detection results
+        if (!fraudChecks.passed) {
+            await logCallback({
+                project_code: pid,
+                clickid: cid,
+                type,
+                status_mapped: internalStatus,
+                response_code: 403,
+                success: false,
+                error_message: `Fraud detection failed: ${fraudChecks.flags.join(', ')}`,
+                raw_query: rawQuery,
+                ip_address: ip,
+                user_agent: userAgent,
+                latency_ms: Date.now() - startTime
+            })
+
+            // Still redirect to status page but DON'T update database
+            console.log(`[Callback] Fraud detected, blocking update for ${cid}`)
+            const statusUrl = `/status?code=${encodeURIComponent(response.project_code || pid || '')}&type=security_terminate`
+            
+            const redirectResponse = NextResponse.redirect(new URL(statusUrl, request.url))
+            redirectResponse.cookies.set('survey_session', cid, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: 3600,
+                path: '/'
+            })
+            return redirectResponse
+        }
+
+        // 6. Check if already terminal (idempotent)
         const terminalStatuses = ['complete', 'terminate', 'security_terminate', 'quota_full', 'duplicate_ip', 'duplicate_string']
         if (terminalStatuses.includes(response.status)) {
             // Already terminal - log idempotent and return success
@@ -326,6 +464,7 @@ export async function GET(request: NextRequest) {
             .from('responses')
             .update({
                 status: internalStatus,
+                completion_time: internalStatus === 'complete' ? now : null,
                 updated_at: now
             })
             .eq('id', response.id)
@@ -367,12 +506,23 @@ export async function GET(request: NextRequest) {
         })
 
         // 8. Redirect to /status page after successful update
+        // Hide CID from URL - store in cookie instead
         const projectCode = response.project_code || pid || ''
         const responseUid = response.uid || cid
-        const statusUrl = `/status?code=${encodeURIComponent(projectCode)}&uid=${encodeURIComponent(responseUid)}&cid=${encodeURIComponent(cid)}&type=${encodeURIComponent(type)}`
+        const statusUrl = `/status?code=${encodeURIComponent(projectCode)}&type=${encodeURIComponent(type)}`
         
-        console.log(`[Callback] Redirecting to: ${statusUrl}`)
-        return NextResponse.redirect(new URL(statusUrl, request.url))
+        console.log(`[Callback] Redirecting to: ${statusUrl} (CID hidden in cookie)`)
+        
+        const redirectResponse = NextResponse.redirect(new URL(statusUrl, request.url))
+        // Set httponly cookie with session ID for status page to read
+        redirectResponse.cookies.set('survey_session', cid, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 3600, // 1 hour
+            path: '/'
+        })
+        return redirectResponse
 
     } catch (error: any) {
         console.error('[Callback] Error:', error)

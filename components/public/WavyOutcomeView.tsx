@@ -69,7 +69,7 @@ export function WavyOutcomeView({ status, statusKeyword }: WavyOutcomeViewProps)
     // Tier 2: fetch by uid + code when session is not in URL
     // (TrustSample/Quantclix redirect back without oi_session)
     tryLookupByUidCode();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.session, params.uid, params.pid]);
 
   function tryLookupByUidCode() {

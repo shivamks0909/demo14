@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-30T00:13:39.097Z",
+  "timestamp": "2026-04-05T08:50:52.798Z",
   "baseUrl": "http://localhost:3000",
   "summary": {
     "passed": 6,
@@ -15,7 +15,7 @@
     {
       "test": "Dashboard auth",
       "success": false,
-      "details": "Status: 200"
+      "details": "Status: 307"
     },
     {
       "test": "Valid tracking",
@@ -24,17 +24,17 @@
     {
       "test": "DB entry created",
       "success": false,
-      "details": "Command failed: node -e \"const db = require('better-sqlite3')('./data/test_local.db'); const count = db.prepare(\"SELECT COUNT(*) as c FROM responses WHERE uid LIKE 'MANUAL_TEST_%'\").get().c; console.log(count); db.close();\"\n[eval]:1\r\nconst db = require('better-sqlite3')('./data/test_local.db'); const count = db.prepare(SELECT\r\n                                                                                       ^^^^^^\r\nExpected ',', got '<eof>'\r\n\r\nSyntaxError: missing ) after argument list\r\n    at makeContextifyScript (node:internal/vm:194:14)\r\n    at compileScript (node:internal/process/execution:388:10)\r\n    at evalTypeScript (node:internal/process/execution:260:22)\r\n    at node:internal/main/eval_string:71:3\r\n\r\nNode.js v24.14.0\r\n"
+      "details": "Command failed: node -e \"const db = require('better-sqlite3')('./data/test_local.db'); const count = db.prepare(\"SELECT COUNT(*) as c FROM responses WHERE uid LIKE 'MANUAL_TEST_%'\").get().c; console.log(count); db.close();\"\n[eval]:1\r\nconst db = require('better-sqlite3')('./data/test_local.db'); const count = db.prepare(SELECT\r\n                                                                                       ^^^^^^\r\nExpected ',', got '<eof>'\r\n\r\nSyntaxError: missing ) after argument list\r\n    at makeContextifyScript (node:internal/vm:194:14)\r\n    at compileScript (node:internal/process/execution:388:10)\r\n    at evalTypeScript (node:internal/process/execution:260:22)\r\n    at node:internal/main/eval_string:71:3\r\n\r\nNode.js v25.8.2\r\n"
     },
     {
       "test": "Audit log entry",
       "success": false,
-      "details": "Command failed: node -e \"const db = require('better-sqlite3')('./data/test_local.db'); const count = db.prepare(\"SELECT COUNT(*) as c FROM audit_logs WHERE payload LIKE '%MANUAL_TEST_%'\").get().c; console.log(count); db.close();\"\n[eval]:1\r\nconst db = require('better-sqlite3')('./data/test_local.db'); const count = db.prepare(SELECT\r\n                                                                                       ^^^^^^\r\nExpected ',', got '<eof>'\r\n\r\nSyntaxError: missing ) after argument list\r\n    at makeContextifyScript (node:internal/vm:194:14)\r\n    at compileScript (node:internal/process/execution:388:10)\r\n    at evalTypeScript (node:internal/process/execution:260:22)\r\n    at node:internal/main/eval_string:71:3\r\n\r\nNode.js v24.14.0\r\n"
+      "details": "Command failed: node -e \"const db = require('better-sqlite3')('./data/test_local.db'); const count = db.prepare(\"SELECT COUNT(*) as c FROM audit_logs WHERE payload LIKE '%MANUAL_TEST_%'\").get().c; console.log(count); db.close();\"\n[eval]:1\r\nconst db = require('better-sqlite3')('./data/test_local.db'); const count = db.prepare(SELECT\r\n                                                                                       ^^^^^^\r\nExpected ',', got '<eof>'\r\n\r\nSyntaxError: missing ) after argument list\r\n    at makeContextifyScript (node:internal/vm:194:14)\r\n    at compileScript (node:internal/process/execution:388:10)\r\n    at evalTypeScript (node:internal/process/execution:260:22)\r\n    at node:internal/main/eval_string:71:3\r\n\r\nNode.js v25.8.2\r\n"
     },
     {
       "test": "Quota increment",
       "success": false,
-      "details": "Command failed: node -e \"const db = require('better-sqlite3')('./data/test_local.db'); const link = db.prepare('SELECT quota_used FROM supplier_project_links WHERE supplier_token = \\'DYN01\\' AND project_code = \\'TEST_SINGLE\\'').get(); console.log(JSON.stringify(link)); db.close();\"\nD:\\new12-main\\node_modules\\better-sqlite3\\lib\\methods\\wrappers.js:5\r\n\treturn this[cppdb].prepare(sql, this, false);\r\n\t                   ^\r\n\r\nSqliteError: no such column: supplier_token\r\n    at Database.prepare (D:\\new12-main\\node_modules\\better-sqlite3\\lib\\methods\\wrappers.js:5:21)\r\n    at [eval]:1:79\r\n    at runScriptInThisContext (node:internal/vm:219:10)\r\n    at node:internal/process/execution:451:12\r\n    at [eval]-wrapper:6:24\r\n    at runScriptInContext (node:internal/process/execution:449:60)\r\n    at evalFunction (node:internal/process/execution:283:30)\r\n    at evalTypeScript (node:internal/process/execution:295:3)\r\n    at node:internal/main/eval_string:71:3 {\r\n  code: 'SQLITE_ERROR'\r\n}\r\n\r\nNode.js v24.14.0\r\n"
+      "details": "Command failed: node -e \"const db = require('better-sqlite3')('./data/test_local.db'); const link = db.prepare('SELECT quota_used FROM supplier_project_links WHERE supplier_token = \\'DYN01\\' AND project_code = \\'TEST_SINGLE\\'').get(); console.log(JSON.stringify(link)); db.close();\"\nD:\\new12-main\\node_modules\\better-sqlite3\\lib\\methods\\wrappers.js:5\r\n\treturn this[cppdb].prepare(sql, this, false);\r\n\t                   ^\r\n\r\nSqliteError: no such column: supplier_token\r\n    at Database.prepare (D:\\new12-main\\node_modules\\better-sqlite3\\lib\\methods\\wrappers.js:5:21)\r\n    at [eval]:1:79\r\n    at runScriptInThisContext (node:internal/vm:219:10)\r\n    at node:internal/process/execution:451:12\r\n    at [eval]-wrapper:6:24\r\n    at runScriptInContext (node:internal/process/execution:449:60)\r\n    at evalFunction (node:internal/process/execution:283:30)\r\n    at evalTypeScript (node:internal/process/execution:295:3)\r\n    at node:internal/main/eval_string:71:3 {\r\n  code: 'SQLITE_ERROR'\r\n}\r\n\r\nNode.js v25.8.2\r\n"
     },
     {
       "test": "Callback endpoint",

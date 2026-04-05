@@ -7,7 +7,22 @@ import RedirectCenter from '@/components/RedirectCenter'
 import LiveActivityFeed from '@/components/LiveActivityFeed'
 import RedirectShortcut from '@/components/RedirectShortcut'
 import AutoRefresh from '@/components/AutoRefresh'
-import { FadeIn, StaggerContainer } from '@/components/Animations'
+import MetricCard from '@/components/ui/MetricCard'
+import ActionCard from '@/components/ui/ActionCard'
+import StatusBadge from '@/components/ui/StatusBadge'
+import {
+    MousePointerClick,
+    CheckCircle2,
+    Clock,
+    TrendingUp,
+    AlertTriangle,
+    Copy,
+    Shield,
+    FolderKanban,
+    ArrowUpRight,
+    ArrowDownRight,
+    Minus,
+} from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,141 +40,189 @@ export default async function AdminDashboard({
         dashboardService.getProjects()
     ])
 
+    const conversionRate = kpis?.clicks_today > 0
+        ? ((kpis.completes_today / kpis.clicks_today) * 100).toFixed(1)
+        : '0'
+
     return (
-        <div className="space-y-6 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-700">
+        <div className="space-y-6">
             <AutoRefresh interval={5000} />
-            
-            <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/60 pb-6 mb-8">
-                <div>
-                    <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight font-inter flex items-center gap-3">
-                        <span className="p-2 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-200">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                            </svg>
-                        </span>
-                        Intelligence Command
-                    </h1>
-                    <p className="text-slate-500 font-medium font-inter mt-1.5 flex items-center gap-2">
-                        Nexus Monitoring Core v2.0
-                        <span className="h-1 w-1 bg-slate-300 rounded-full"></span>
-                        {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                    </p>
-                </div>
-                <div className="mt-4 sm:mt-0 flex items-center space-x-3 bg-white/70 backdrop-blur-md px-4 py-2 rounded-2xl border border-emerald-100 shadow-sm shadow-emerald-50">
-                    <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest">
-                        Node Synchronized
-                    </span>
-                </div>
-            </header>
 
-            <FadeIn delay={0.1}>
-                <DashboardStats stats={kpis} />
-            </FadeIn>
-
-            <div className="mt-10">
-                <FadeIn delay={0.2} direction="right">
-                    <Suspense fallback={<div className="h-16 bg-slate-100 animate-pulse rounded-2xl" />}>
-                        <DashboardFilters clients={clients} />
-                    </Suspense>
-                </FadeIn>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
+                <MetricCard
+                    title="Clicks"
+                    value={kpis?.total_clicks_today || kpis?.clicks_today || 0}
+                    icon={<MousePointerClick className="h-4 w-4" />}
+                    color="primary"
+                    delay={0}
+                />
+                <MetricCard
+                    title="Completes"
+                    value={kpis?.total_completes_today || kpis?.completes_today || 0}
+                    icon={<CheckCircle2 className="h-4 w-4" />}
+                    color="success"
+                    delay={0.05}
+                />
+                <MetricCard
+                    title="In Progress"
+                    value={kpis?.in_progress_today || 0}
+                    icon={<Clock className="h-4 w-4" />}
+                    color="info"
+                    delay={0.1}
+                />
+                <MetricCard
+                    title="Conversion"
+                    value={`${conversionRate}%`}
+                    icon={<TrendingUp className="h-4 w-4" />}
+                    color="warning"
+                    delay={0.15}
+                />
+                <MetricCard
+                    title="Quota Full"
+                    value={kpis?.quotafull_today || 0}
+                    icon={<AlertTriangle className="h-4 w-4" />}
+                    color="warning"
+                    delay={0.2}
+                />
+                <MetricCard
+                    title="Duplicates"
+                    value={kpis?.duplicates_today || 0}
+                    icon={<Copy className="h-4 w-4" />}
+                    color="error"
+                    delay={0.25}
+                />
+                <MetricCard
+                    title="Security"
+                    value={kpis?.security_terminates_today || 0}
+                    icon={<Shield className="h-4 w-4" />}
+                    color="neutral"
+                    delay={0.3}
+                />
+                <MetricCard
+                    title="Projects"
+                    value={kpis?.active_projects || 0}
+                    icon={<FolderKanban className="h-4 w-4" />}
+                    color="primary"
+                    delay={0.35}
+                />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-8">
-                <div className="lg:col-span-9 space-y-8">
-                    <FadeIn delay={0.3}>
+            {/* Filters */}
+            <Suspense fallback={<div className="h-12 bg-bg-subtle rounded-2xl animate-pulse" />}>
+                <DashboardFilters clients={clients} />
+            </Suspense>
+
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left Column - Chart & Table */}
+                <div className="lg:col-span-8 space-y-6">
+                    {/* Traffic Chart */}
+                    <ActionCard
+                        title="Traffic Overview"
+                        description="Response volume over time"
+                    >
                         <TrafficChart />
-                    </FadeIn>
+                    </ActionCard>
 
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between border-l-4 border-indigo-500 pl-4 py-1">
-                            <div>
-                                <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.2em]">Project Performance</h3>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">Real-time health telemetry</p>
-                            </div>
-                            <button className="text-indigo-600 text-[10px] font-black uppercase tracking-widest hover:text-indigo-700 transition-colors">
-                                View Full Analytics →
+                    {/* Project Performance Table */}
+                    <ActionCard
+                        title="Project Performance"
+                        description="Real-time health metrics"
+                        action={
+                            <button className="btn-ghost text-xs">
+                                View All
+                                <ArrowUpRight className="h-3 w-3" />
                             </button>
-                        </div>
-
-                        <FadeIn delay={0.4}>
-                            <div className="bg-white/80 backdrop-blur-sm shadow-xl shadow-slate-200/40 rounded-[2rem] border border-slate-100 overflow-hidden">
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-slate-100">
-                                        <thead>
-                                            <tr className="bg-slate-50/50">
-                                                <th className="px-8 py-5 text-left text-[11px] font-black text-slate-500 uppercase tracking-widest">Source Code</th>
-                                                <th className="px-6 py-5 text-center text-[11px] font-black text-slate-500 uppercase tracking-widest">Entry Volume</th>
-                                                <th className="px-6 py-5 text-center text-[11px] font-black text-slate-500 uppercase tracking-widest">Live Subs</th>
-                                                <th className="px-6 py-5 text-center text-[11px] font-black text-slate-500 uppercase tracking-widest">Conversions</th>
-                                                <th className="px-8 py-5 text-left text-[11px] font-black text-slate-500 uppercase tracking-widest">Success Index</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-50 bg-white">
-                                            {healthMetrics.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={5} className="px-8 py-12 text-center text-sm text-slate-400 italic">Targeting zero activity vectors...</td>
-                                                </tr>
-                                            ) : (
-                                                healthMetrics.slice(0, 5).map((m: any, idx: number) => (
-                                                    <tr key={m.project_id} className="hover:bg-indigo-50/20 transition-all cursor-default">
-                                                        <td className="px-8 py-5 whitespace-nowrap">
-                                                            <div className="flex items-center gap-3">
-                                                                <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400">
-                                                                    0{idx + 1}
-                                                                </span>
-                                                                <span className="text-sm font-bold text-slate-900 tracking-tight">{m.project_code}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-5 whitespace-nowrap text-center text-sm text-slate-600 font-mono font-bold">{m.clicks_today}</td>
-                                                        <td className="px-6 py-5 whitespace-nowrap text-center text-sm text-indigo-600 font-black font-mono">{m.in_progress_today}</td>
-                                                        <td className="px-6 py-5 whitespace-nowrap text-center text-sm text-emerald-600 font-black font-mono">{m.completes_today}</td>
-                                                        <td className="px-8 py-5 whitespace-nowrap">
-                                                            <div className="flex items-center space-x-4">
-                                                                <div className="flex-1 w-28 bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
-                                                                    <div
-                                                                        className={`h-full transition-all duration-[1.5s] ease-out shadow-sm ${m.conversion_rate > 15 ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' :
-                                                                            m.conversion_rate > 5 ? 'bg-gradient-to-r from-indigo-400 to-indigo-500' : 'bg-gradient-to-r from-rose-400 to-rose-500'
-                                                                            }`}
-                                                                        style={{ width: `${Math.min(m.conversion_rate || 0, 100)}%` }}
-                                                                    ></div>
-                                                                </div>
-                                                                <span className="text-xs font-black text-slate-700 w-10">{Math.round(m.conversion_rate || 0)}%</span>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
+                        }
+                    >
+                        {healthMetrics.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                                <div className="w-10 h-10 rounded-xl bg-bg-subtle flex items-center justify-center mb-3">
+                                    <TrendingUp className="h-5 w-5 text-text-muted" />
                                 </div>
+                                <p className="text-sm text-text-muted">No project activity yet</p>
+                                <p className="text-xs text-text-muted/70 mt-1">Projects will appear here once traffic starts flowing</p>
                             </div>
-                        </FadeIn>
-                    </div>
+                        ) : (
+                            <div className="overflow-x-auto -mx-5">
+                                <table className="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Project</th>
+                                            <th className="text-center">Clicks</th>
+                                            <th className="text-center">Active</th>
+                                            <th className="text-center">Completes</th>
+                                            <th>Conversion</th>
+                                            <th className="text-right">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {healthMetrics.slice(0, 8).map((m: any, idx: number) => {
+                                            const rate = m.conversion_rate || 0
+                                            const status = rate > 15 ? 'active' : rate > 5 ? 'running' : 'paused'
+                                            return (
+                                                <tr key={m.project_id}>
+                                                    <td>
+                                                        <div className="flex items-center gap-2.5">
+                                                            <div className="w-7 h-7 rounded-lg bg-bg-subtle flex items-center justify-center text-[10px] font-semibold text-text-muted">
+                                                                {idx + 1}
+                                                            </div>
+                                                            <span className="text-sm font-medium text-text-primary">{m.project_code}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="text-center font-mono text-sm">{m.clicks_today}</td>
+                                                    <td className="text-center font-mono text-sm text-info">{m.in_progress_today}</td>
+                                                    <td className="text-center font-mono text-sm text-success">{m.completes_today}</td>
+                                                    <td>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex-1 w-20 h-1.5 bg-bg-subtle rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full rounded-full transition-all duration-500 ${
+                                                                        rate > 15 ? 'bg-success' :
+                                                                        rate > 5 ? 'bg-info' : 'bg-warning'
+                                                                    }`}
+                                                                    style={{ width: `${Math.min(rate, 100)}%` }}
+                                                                />
+                                                            </div>
+                                                            <span className="text-xs font-medium text-text-secondary w-8">{Math.round(rate)}%</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="text-right">
+                                                        <StatusBadge status={status} />
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </ActionCard>
                 </div>
 
-                <aside className="lg:col-span-3 space-y-8">
-                    <FadeIn delay={0.5} direction="left">
-                        <RedirectShortcut />
-                    </FadeIn>
-                    <FadeIn delay={0.6} direction="left">
+                {/* Right Column - Sidebar */}
+                <div className="lg:col-span-4 space-y-6">
+                    {/* Redirect Shortcut */}
+                    <RedirectShortcut />
+
+                    {/* Live Activity Feed */}
+                    <ActionCard
+                        title="Live Activity"
+                        description="Recent survey responses"
+                    >
                         <LiveActivityFeed responses={responses} />
-                    </FadeIn>
-                </aside>
+                    </ActionCard>
+                </div>
             </div>
 
-            <FadeIn delay={0.7} direction="up">
-                <div id="redirect-center" className="pt-12 transition-all duration-500 scroll-mt-6">
-                    <div className="flex items-center gap-4 mb-8">
-                        <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Registry Terminal</h2>
-                        <div className="h-px flex-1 bg-slate-200/60"></div>
-                    </div>
-                    <RedirectCenter projects={projects} />
-                </div>
-            </FadeIn>
+            {/* Redirect Center */}
+            <ActionCard
+                title="Redirect Registry"
+                description="Manage survey redirect URLs and postback configurations"
+            >
+                <RedirectCenter projects={projects} />
+            </ActionCard>
         </div>
     )
 }

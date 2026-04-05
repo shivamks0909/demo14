@@ -2,6 +2,12 @@ import { dashboardService } from '@/lib/dashboardService'
 import type { Client } from '@/lib/types'
 import ClientForm from '@/components/ClientForm'
 import DeleteClientButton from '@/components/DeleteClientButton'
+import EditClientButton from '@/components/EditClientButton'
+import ExportClientsButton from '@/components/ExportClientsButton'
+import PageHeader from '@/components/ui/PageHeader'
+import ActionCard from '@/components/ui/ActionCard'
+import DataTable from '@/components/ui/DataTable'
+import { Users, Download, Pencil, Trash2 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,47 +16,66 @@ export default async function AdminClientsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                <h1 className="text-2xl font-semibold text-gray-900">Client Management</h1>
-            </div>
+            <PageHeader
+                title="Clients"
+                description="Manage client accounts and configurations"
+                actions={<ExportClientsButton clients={clients} />}
+            />
 
-            <ClientForm />
+            <ActionCard title="Add Client" description="Create a new client account">
+                <ClientForm />
+            </ActionCard>
 
-            <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
-                    <div>
-                        <h3 className="text-lg leading-6 font-medium text-gray-900">Active Clients</h3>
-                        <p className="mt-1 max-w-2xl text-sm text-gray-500">List of all clients in the system.</p>
-                    </div>
-                    <span className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                        {clients.length} Total
-                    </span>
-                </div>
-                <div className="border-t border-gray-200">
-                    {clients.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500">
-                            No clients found. Add your first client above.
+            <ActionCard
+                title="Client Directory"
+                description={`${clients.length} registered clients`}
+            >
+                {clients.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-bg-subtle flex items-center justify-center mb-4">
+                            <Users className="h-6 w-6 text-text-muted" />
                         </div>
-                    ) : (
-                        <ul className="divide-y divide-gray-200">
-                            {clients.map((client) => (
-                                <li key={client.id} className="px-4 py-4 sm:px-6 hover:bg-gray-50 transition-colors">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex flex-col">
-                                            <p className="text-sm font-semibold text-indigo-600 truncate">{client.name}</p>
-                                            <p className="text-xs text-gray-400">Created: {new Date(client.created_at).toLocaleDateString()}</p>
+                        <p className="text-sm text-text-muted">No clients found</p>
+                        <p className="text-xs text-text-muted/70 mt-1">Add your first client using the form above</p>
+                    </div>
+                ) : (
+                    <DataTable
+                        columns={[
+                            {
+                                key: 'name',
+                                header: 'Client Name',
+                                render: (client: Client) => (
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-primary-soft border border-primary-border flex items-center justify-center">
+                                            <span className="text-xs font-semibold text-primary">
+                                                {client.name.charAt(0).toUpperCase()}
+                                            </span>
                                         </div>
-                                        <div className="ml-2 flex-shrink-0 flex gap-4">
-                                            <button className="text-indigo-600 hover:text-indigo-900 text-sm font-medium">Edit</button>
-                                            <DeleteClientButton id={client.id} name={client.name} />
+                                        <div>
+                                            <p className="text-sm font-medium text-text-primary">{client.name}</p>
+                                            <p className="text-xs text-text-muted">
+                                                Created {new Date(client.created_at).toLocaleDateString()}
+                                            </p>
                                         </div>
                                     </div>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-            </div>
+                                ),
+                            },
+                            {
+                                key: 'actions',
+                                header: 'Actions',
+                                render: (client: Client) => (
+                                    <div className="flex items-center gap-1">
+                                        <EditClientButton id={client.id} name={client.name} />
+                                        <DeleteClientButton id={client.id} name={client.name} />
+                                    </div>
+                                ),
+                            },
+                        ]}
+                        data={clients}
+                        emptyMessage="No clients found"
+                    />
+                )}
+            </ActionCard>
         </div>
     )
 }

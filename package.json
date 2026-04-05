@@ -14,9 +14,10 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@insforge/sdk": "^1.2.0",
+    "@insforge/sdk": "^1.2.2",
     "@splinetool/react-spline": "^4.1.0",
     "@splinetool/runtime": "^1.12.67",
+    "aceternity-ui": "^0.2.2",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.8.0",
     "canvas-confetti": "^1.9.4",
@@ -53,7 +54,6 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "15.1.6",
     "jest": "^30.2.0",
-    "pg": "^8.20.0",
     "postcss": "8.4",
     "tailwindcss": "^3.4.1",
     "ts-jest": "^29.2.6",
