@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { loginAction } from './actions'
 
@@ -99,9 +99,7 @@ export default function LoginPage() {
                 </p>
             </div>
 
-            <Suspense fallback={<div className="text-center mt-8">Loading...</div>}>
-                <LoginForm />
-            </Suspense>
+            <LoginForm />
         </div>
     )
 }
