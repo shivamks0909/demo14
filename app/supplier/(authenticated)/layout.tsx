@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { validateSupplierSession } from '@/lib/supplier-auth'
-import { getDb } from '@/lib/db'
+import { getUnifiedDb } from '@/lib/unified-db'
 import Link from 'next/link'
 import Image from 'next/image'
 import { LayoutDashboard, FolderKanban, FileText, LogOut } from 'lucide-react'
@@ -24,12 +24,16 @@ export default async function SupplierLayout({
     redirect('/supplier/login')
   }
 
-  const db = getDb()
-  const supplier = db.prepare(`
-    SELECT id, name, login_email, status
-    FROM suppliers
-    WHERE id = ?
-  `).get(supplierId) as any
+  const { database: db } = await getUnifiedDb()
+  let supplier: any = null
+  if (db) {
+    const { data } = await db
+      .from('suppliers')
+      .select('id, name, login_email, status')
+      .eq('id', supplierId)
+      .maybeSingle()
+    supplier = data
+  }
 
   if (!supplier || supplier.status !== 'active') {
     redirect('/supplier/login')
