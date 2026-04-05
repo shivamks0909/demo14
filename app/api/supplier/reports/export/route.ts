@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import { getUnifiedDb } from '@/lib/unified-db'
 import { validateSupplierSession } from '@/lib/supplier-auth'
 
 export async function GET(request: NextRequest) {
@@ -16,40 +16,31 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('date_from')
     const dateTo = searchParams.get('date_to')
 
-    const db = getDb()
+    const { database: db } = await getUnifiedDb()
 
-    let whereClause = 'WHERE r.supplier_id = ?'
-    const params: any[] = [supplierId]
+    let query = db
+      .from('responses')
+      .select('id, project_code, project_name, uid, oi_session, status, created_at, updated_at')
+      .eq('supplier_id', supplierId)
+      .order('created_at', { ascending: false })
 
-    if (status) {
-      whereClause += ' AND r.status = ?'
-      params.push(status)
-    }
-    if (projectId) {
-      whereClause += ' AND r.project_id = ?'
-      params.push(projectId)
-    }
-    if (dateFrom) {
-      whereClause += ' AND r.created_at >= ?'
-      params.push(dateFrom)
-    }
-    if (dateTo) {
-      whereClause += ' AND r.created_at <= ?'
-      params.push(dateTo)
-    }
+    if (status) query = query.eq('status', status)
+    if (projectId) query = query.eq('project_id', projectId)
+    if (dateFrom) query = query.gte('created_at', dateFrom)
+    if (dateTo) query = query.lte('created_at', dateTo)
 
-    const responses = db.prepare(`
-      SELECT r.id, r.project_code, r.project_name, r.uid, r.oi_session, r.status, r.created_at, r.updated_at
-      FROM responses r
-      ${whereClause}
-      ORDER BY r.created_at DESC
-    `).all(...params) as any[]
+    const { data: responses, error } = await query
+
+    if (error) {
+      console.error('[Supplier Export] Query error:', error)
+      return NextResponse.json({ error: 'Failed to export data' }, { status: 500 })
+    }
 
     // Generate CSV
     const headers = ['ID', 'Project Code', 'Project Name', 'UID', 'Session', 'Status', 'Created At', 'Updated At']
     const csvRows = [
       headers.join(','),
-      ...responses.map(r => [
+      ...(responses || []).map(r => [
         r.id,
         r.project_code,
         `"${(r.project_name || '').replace(/"/g, '""')}"`,

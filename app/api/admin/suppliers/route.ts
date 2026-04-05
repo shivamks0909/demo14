@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import { getUnifiedDb } from '@/lib/unified-db'
 import { hashPassword } from '@/lib/supplier-auth'
 import * as crypto from 'crypto'
 
@@ -15,12 +15,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const db = getDb()
+    const { database: db } = await getUnifiedDb()
 
-    // Check if email already exists
-    const existing = db.prepare(`
-      SELECT id FROM suppliers WHERE login_email = ?
-    `).get(login_email)
+    // Check if email already exists in cloud DB
+    const { data: existing } = await db
+      .from('suppliers')
+      .select('id')
+      .eq('login_email', login_email)
+      .maybeSingle()
 
     if (existing) {
       return NextResponse.json(
@@ -31,23 +33,38 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = await hashPassword(password)
     const id = `sup_${crypto.randomUUID()}`
+    const supplierToken = `tok_${crypto.randomUUID()}`
     const now = new Date().toISOString()
 
-    db.prepare(`
-      INSERT INTO suppliers (id, name, login_email, password_hash, status, created_at)
-      VALUES (?, ?, ?, ?, 'active', ?)
-    `).run(id, name, login_email, passwordHash, now)
+    const { data: supplier, error: insertError } = await db
+      .from('suppliers')
+      .insert([{
+        id,
+        name,
+        supplier_token: supplierToken,
+        login_email,
+        password_hash: passwordHash,
+        status: 'active',
+        contact_email: login_email,
+        created_at: now,
+        updated_at: now
+      }])
+      .select()
+      .single()
 
-    const supplier = db.prepare(`
-      SELECT id, name, login_email, status, created_at
-      FROM suppliers WHERE id = ?
-    `).get(id)
+    if (insertError) {
+      console.error('[Admin Create Supplier] Insert error:', insertError)
+      return NextResponse.json(
+        { error: 'Failed to create supplier: ' + insertError.message },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({ supplier, password }, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Admin Create Supplier] Error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error: ' + (error.message || '') },
       { status: 500 }
     )
   }
@@ -55,15 +72,22 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    const db = getDb()
-    const suppliers = db.prepare(`
-      SELECT id, name, login_email, status, last_login, created_at
-      FROM suppliers
-      ORDER BY created_at DESC
-    `).all()
+    const { database: db } = await getUnifiedDb()
+    const { data: suppliers, error } = await db
+      .from('suppliers')
+      .select('id, name, login_email, status, last_login, created_at')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('[Admin List Suppliers] Query error:', error)
+      return NextResponse.json(
+        { error: 'Failed to fetch suppliers' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({ suppliers })
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Admin List Suppliers] Error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
