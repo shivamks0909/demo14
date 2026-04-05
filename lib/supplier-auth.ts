@@ -18,12 +18,16 @@ export async function createSupplierSession(supplierId: string): Promise<{ token
   const token = randomBytes(48).toString('hex')
   const expiresAt = new Date(Date.now() + SESSION_DURATION_HOURS * 60 * 60 * 1000).toISOString()
 
-  await db.from('supplier_sessions').insert([{
-    id: `ss_${Date.now()}_${randomBytes(8).toString('hex')}`,
+  const { error } = await db.from('supplier_sessions').insert([{
     supplier_id: supplierId,
     token: createHash('sha256').update(token).digest('hex'),
     expires_at: expiresAt
   }])
+
+  if (error) {
+    console.error('[createSupplierSession] DB insert error:', error)
+    throw new Error(`Failed to create session: ${error.message}`)
+  }
 
   return { token, expiresAt }
 }
