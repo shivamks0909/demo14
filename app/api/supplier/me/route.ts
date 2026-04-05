@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import { getUnifiedDb } from '@/lib/unified-db'
 import { validateSupplierSession } from '@/lib/supplier-auth'
 
 export async function GET(request: NextRequest) {
@@ -16,14 +16,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
     }
 
-    const db = getDb()
+    const { database: db } = await getUnifiedDb()
     
     // Get supplier profile
-    const supplier = db.prepare(`
-      SELECT id, name, login_email, status, last_login, created_at
-      FROM suppliers
-      WHERE id = ?
-    `).get(supplierId) as any
+    const { data: supplier } = await db
+      .from('suppliers')
+      .select('id, name, login_email, status, last_login, created_at')
+      .eq('id', supplierId)
+      .maybeSingle()
 
     if (!supplier) {
       return NextResponse.json({ error: 'Supplier not found' }, { status: 404 })

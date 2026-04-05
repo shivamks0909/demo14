@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import { getUnifiedDb } from '@/lib/unified-db'
 import { validateSupplierSession } from '@/lib/supplier-auth'
 
 export async function GET(request: NextRequest) {
@@ -19,49 +19,33 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = (page - 1) * limit
 
-    const db = getDb()
+    const { database: db } = await getUnifiedDb()
 
     // Build query with filters
-    let whereClause = 'WHERE r.supplier_id = ?'
-    const params: any[] = [supplierId]
+    let query = db.from('responses').select('id, project_code, project_name, uid, oi_session, status, created_at, updated_at', { count: 'exact' }).eq('supplier_id', supplierId)
 
     if (status) {
-      whereClause += ' AND r.status = ?'
-      params.push(status)
+      query = query.eq('status', status)
     }
     if (projectId) {
-      whereClause += ' AND r.project_id = ?'
-      params.push(projectId)
+      query = query.eq('project_id', projectId)
     }
     if (dateFrom) {
-      whereClause += ' AND r.created_at >= ?'
-      params.push(dateFrom)
+      query = query.gte('created_at', dateFrom)
     }
     if (dateTo) {
-      whereClause += ' AND r.created_at <= ?'
-      params.push(dateTo)
+      query = query.lte('created_at', dateTo)
     }
 
-    // Get total count
-    const countResult = db.prepare(`
-      SELECT COUNT(*) as total FROM responses r ${whereClause}
-    `).get(...params) as any
+    const { data: responses, count: total } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
-    // Get paginated responses
-    const responses = db.prepare(`
-      SELECT r.id, r.project_code, r.project_name, r.uid, r.oi_session, r.status, r.created_at, r.updated_at
-      FROM responses r
-      ${whereClause}
-      ORDER BY r.created_at DESC
-      LIMIT ? OFFSET ?
-    `).all(...params, limit, offset) as any[]
-
-    const total = countResult.total || 0
-    const totalPages = Math.ceil(total / limit)
+    const totalPages = Math.ceil((total || 0) / limit)
 
     return NextResponse.json({
-      responses,
-      total,
+      responses: responses || [],
+      total: total || 0,
       page,
       totalPages
     })

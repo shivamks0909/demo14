@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import { getUnifiedDb } from '@/lib/unified-db'
 import { validateSupplierSession } from '@/lib/supplier-auth'
 
 export async function GET(request: NextRequest) {
@@ -10,47 +10,48 @@ export async function GET(request: NextRequest) {
     const { valid, supplierId } = await validateSupplierSession(token)
     if (!valid || !supplierId) return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
 
-    const db = getDb()
+    const { database: db } = await getUnifiedDb()
 
     // Get assigned projects with stats
-    const projects = db.prepare(`
-      SELECT
-        spl.id as link_id,
-        spl.project_id,
-        spl.quota_allocated,
-        spl.quota_used,
-        spl.status as link_status,
-        p.project_code,
-        p.project_name,
-        p.country,
-        p.status as project_status
-      FROM supplier_project_links spl
-      JOIN projects p ON spl.project_id = p.id
-      WHERE spl.supplier_id = ?
-      ORDER BY p.project_name
-    `).all(supplierId) as any[]
+    const { data: links } = await db
+      .from('supplier_project_links')
+      .select('*, projects(project_code, project_name, country, status)')
+      .eq('supplier_id', supplierId)
+      .order('projects(project_name)')
 
-    // Enrich with today's stats
-    const enrichedProjects = projects.map((proj: any) => {
-      const todayStats = db.prepare(`
-        SELECT
-          COUNT(*) as total_clicks,
-          SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) as total_completes
-        FROM responses
-        WHERE supplier_id = ? AND project_id = ?
-      `).get(supplierId, proj.project_id) as any
+    const projects = (links || []).map((link: any) => ({
+      link_id: link.id,
+      project_id: link.project_id,
+      quota_allocated: link.quota_allocated,
+      quota_used: link.quota_used,
+      link_status: link.status,
+      project_code: link.projects?.project_code,
+      project_name: link.projects?.project_name,
+      country: link.projects?.country,
+      project_status: link.projects?.status
+    }))
 
-      const totalClicks = todayStats.total_clicks || 0
-      const totalCompletes = todayStats.total_completes || 0
-      const conversionRate = totalClicks > 0 ? (totalCompletes / totalClicks) * 100 : 0
+    // Enrich with stats
+    const enrichedProjects = await Promise.all(
+      projects.map(async (proj: any) => {
+        const { data: responses } = await db
+          .from('responses')
+          .select('status')
+          .eq('supplier_id', supplierId)
+          .eq('project_id', proj.project_id)
 
-      return {
-        ...proj,
-        total_clicks: totalClicks,
-        total_completes: totalCompletes,
-        conversion_rate: parseFloat(conversionRate.toFixed(2))
-      }
-    })
+        const totalClicks = responses?.length || 0
+        const totalCompletes = responses?.filter((r: any) => r.status === 'complete').length || 0
+        const conversionRate = totalClicks > 0 ? (totalCompletes / totalClicks) * 100 : 0
+
+        return {
+          ...proj,
+          total_clicks: totalClicks,
+          total_completes: totalCompletes,
+          conversion_rate: parseFloat(conversionRate.toFixed(2))
+        }
+      })
+    )
 
     return NextResponse.json({ projects: enrichedProjects })
   } catch (error) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import { getUnifiedDb } from '@/lib/unified-db'
 import { verifyPassword, createSupplierSession, updateSupplierLastLogin } from '@/lib/supplier-auth'
 
 export async function POST(request: NextRequest) {
@@ -14,14 +14,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const db = getDb()
-    const supplier = db.prepare(`
-      SELECT id, name, login_email, password_hash, status
-      FROM suppliers
-      WHERE login_email = ?
-    `).get(email) as { id: string; name: string; login_email: string; password_hash: string; status: string } | undefined
+    const { database: db, source } = await getUnifiedDb()
 
-    if (!supplier) {
+    // Query suppliers table from cloud database
+    const { data: supplier, error: queryError } = await db
+      .from('suppliers')
+      .select('*')
+      .eq('login_email', email)
+      .maybeSingle()
+
+    if (queryError || !supplier) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
