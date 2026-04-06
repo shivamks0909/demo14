@@ -40,11 +40,9 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Create new assignment
-      const id = `spl_${crypto.randomUUID()}`
       const { error } = await db
         .from('supplier_project_links')
         .insert([{
-          id,
           supplier_id,
           project_id,
           quota_allocated: quota_allocated || 0,

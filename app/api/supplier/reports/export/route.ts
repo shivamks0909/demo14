@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const headers = ['ID', 'Project Code', 'Project Name', 'UID', 'Session', 'Status', 'Created At', 'Updated At']
     const csvRows = [
       headers.join(','),
-      ...(responses || []).map(r => [
+      ...(responses || []).map((r: any) => [
         r.id,
         r.project_code,
         `"${(r.project_name || '').replace(/"/g, '""')}"`,

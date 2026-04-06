@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dashboardService } from '@/lib/dashboardService';
+import { getUnifiedDb } from '@/lib/unified-db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -7,13 +7,21 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const filters = {
-      ip: searchParams.get('ip') || undefined,
-      status: searchParams.get('status') || undefined,
-      device_type: searchParams.get('device_type') || undefined
-    };
-
-    const responses = await dashboardService.getResponses(filters);
+    const { database: db } = await getUnifiedDb();
+    
+    let query = db.from('responses').select('*');
+    
+    const ip = searchParams.get('ip');
+    const status = searchParams.get('status');
+    const device_type = searchParams.get('device_type');
+    
+    if (ip) query = query.eq('ip', ip);
+    if (status) query = query.eq('status', status);
+    if (device_type) query = query.eq('device_type', device_type);
+    
+    const { data: responses, error } = await query.order('created_at', { ascending: false });
+    
+    if (error) throw error;
     return NextResponse.json({ success: true, data: responses || [] });
   } catch (error: any) {
     console.error('[Admin Responses GET] Error:', error);
@@ -24,9 +32,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const { database: db } = await getUnifiedDb();
     
-    // Use dashboardService to create response (handles ID correctly)
-    const { data, error } = await dashboardService.createResponse(body);
+    const responseId = body.id || `resp_${crypto.randomUUID()}`;
+    const now = new Date().toISOString();
+    
+    const { data, error } = await db.from('responses').insert([{
+      id: responseId,
+      ...body,
+      created_at: body.created_at || now,
+      updated_at: now,
+    }]).select().single();
     
     if (error) throw error;
     return NextResponse.json({ success: true, data });
@@ -42,7 +58,8 @@ export async function PATCH(request: NextRequest) {
     const { id, ...updates } = body;
     if (!id) return NextResponse.json({ success: false, error: 'Missing id' }, { status: 400 });
     
-    const { error } = await dashboardService.updateResponse(id, updates);
+    const { database: db } = await getUnifiedDb();
+    const { error } = await db.from('responses').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error: any) {
@@ -57,7 +74,8 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ success: false, error: 'Missing id' }, { status: 400 });
     
-    const { error } = await dashboardService.deleteResponse(id);
+    const { database: db } = await getUnifiedDb();
+    const { error } = await db.from('responses').delete().eq('id', id);
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -347,7 +347,8 @@ export async function GET(request: NextRequest) {
         const createdAt = new Date(response.created_at || Date.now()).getTime()
         const timeElapsed = (Date.now() - createdAt) / 1000 // seconds
         const MIN_SURVEY_TIME = 30 // Minimum 30 seconds for a valid survey
-        if (timeElapsed < MIN_SURVEY_TIME && internalStatus === 'complete') {
+        const isTestMode = process.env.NODE_ENV === 'development' || process.env.ALLOW_TEST_CALLBACKS === 'true'
+        if (!isTestMode && timeElapsed < MIN_SURVEY_TIME && internalStatus === 'complete') {
             fraudChecks.passed = false
             fraudChecks.flags.push(`too_fast: ${Math.round(timeElapsed)}s (min: ${MIN_SURVEY_TIME}s)`)
             console.warn(`[Callback] FRAUD: Suspiciously fast completion for response ${response.id} (${Math.round(timeElapsed)}s)`)

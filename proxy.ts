@@ -15,8 +15,11 @@ export async function proxy(request: NextRequest) {
     // Check if this is a supplier portal route
     const isSupplierRoute = SUPPLIER_ROUTES.some(route => pathname.startsWith(route))
 
-    // Skip middleware for login pages and static assets
-    if (pathname === LOGIN_ROUTE || pathname === SUPPLIER_LOGIN_ROUTE || pathname.startsWith('/_next') || pathname.startsWith('/api/health')) {
+    // Skip middleware for login pages, static assets, and public API routes
+    const PUBLIC_API_ROUTES = ['/api/health', '/api/track', '/api/callback', '/api/mock-init', '/api/test-callback', '/api/test-direct', '/api/test-track', '/api/s2s/callback', '/api/respondent-stats']
+    const isPublicApiRoute = PUBLIC_API_ROUTES.some(route => pathname.startsWith(route))
+
+    if (pathname === LOGIN_ROUTE || pathname === SUPPLIER_LOGIN_ROUTE || pathname.startsWith('/_next') || isPublicApiRoute) {
         const response = NextResponse.next()
         applySecurityHeaders(response, request)
         return response

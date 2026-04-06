@@ -16,22 +16,29 @@ export default function SupplierLoginPage() {
     setLoading(true)
 
     try {
+      console.log('[Supplier Login] Attempting login for:', email)
       const res = await fetch('/api/supplier/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
+        credentials: 'include'
       })
 
+      console.log('[Supplier Login] Response status:', res.status)
       const data = await res.json()
+      console.log('[Supplier Login] Response data:', data)
 
       if (!res.ok) {
         setError(data.error || 'Login failed')
         return
       }
 
-      router.push('/supplier/dashboard')
-      router.refresh()
+      // Use window.location.href for full page navigation to ensure
+      // the server-side layout can read the newly set cookie
+      console.log('[Supplier Login] Login successful, redirecting to dashboard')
+      window.location.href = '/supplier/dashboard'
     } catch (err) {
+      console.error('[Supplier Login] Error:', err)
       setError('An error occurred. Please try again.')
     } finally {
       setLoading(false)
